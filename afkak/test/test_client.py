@@ -15,6 +15,7 @@ from twisted.internet.defer import (
     Deferred, succeed, fail, setDebugging,
     )
 from twisted.internet.error import ConnectionRefusedError
+from twisted.names import dns
 from twisted.test.proto_helpers import MemoryReactorClock
 
 import struct
@@ -509,6 +510,25 @@ class TestKafkaClient(unittest.TestCase):
         ip_address = '127.0.0.1'
         mock.payload.dottedQuad.return_value = ip_address
         RRHeader.return_value = ([mock], [], [])
+        result = self.successResultOf(_get_IP_addresses('address'))
+        self.assertEqual(result, [ip_address])
+
+        # Test given a host_address which is an IP address
+        result = self.successResultOf(_get_IP_addresses(ip_address))
+        self.assertEqual(result, [ip_address])
+
+        # Test given a bad host_address
+        RRHeader.return_value = ([], [], [])
+        result = self.successResultOf(_get_IP_addresses(' '))
+        self.assertEqual(None, result)
+
+    @patch('afkak.client.DNSclient.lookupAddress')
+    def test__get_IP_addresses_CNAME(self, RRHeader):
+        cname = MagicMock(type=dns.A, spec=None)
+        a = MagicMock()
+        ip_address = '127.0.0.1'
+        mock.payload.dottedQuad.return_value = ip_address
+        RRHeader.return_value = ([cname, a], [], [])
         result = self.successResultOf(_get_IP_addresses('address'))
         self.assertEqual(result, [ip_address])
 
