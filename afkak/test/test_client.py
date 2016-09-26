@@ -505,11 +505,14 @@ class TestKafkaClient(unittest.TestCase):
         ]))
 
     @patch('afkak.client.DNSclient.lookupAddress')
-    def test__get_IP_addresses(self, RRHeader):
-        mock = MagicMock()
-        ip_address = '127.0.0.1'
-        mock.payload.dottedQuad.return_value = ip_address
-        RRHeader.return_value = ([mock], [], [])
+    def test__get_IP_addresses(self, lookupAddress):
+        ip_address = "127.0.0.1"
+        answer = dns.RRHeader(
+            name="address",
+            type=dns.A,
+            payload=dns.Record_A(address=ip_address),
+        )
+        lookupAddress.return_value = ([answer], [], [])
         result = self.successResultOf(_get_IP_addresses('address'))
         self.assertEqual(result, [ip_address])
 
@@ -518,28 +521,26 @@ class TestKafkaClient(unittest.TestCase):
         self.assertEqual(result, [ip_address])
 
         # Test given a bad host_address
-        RRHeader.return_value = ([], [], [])
+        lookupAddress.return_value = ([], [], [])
         result = self.successResultOf(_get_IP_addresses(' '))
         self.assertEqual(None, result)
 
     @patch('afkak.client.DNSclient.lookupAddress')
-    def test__get_IP_addresses_CNAME(self, RRHeader):
-        cname = MagicMock(type=dns.A, spec=None)
-        a = MagicMock()
-        ip_address = '127.0.0.1'
-        mock.payload.dottedQuad.return_value = ip_address
-        RRHeader.return_value = ([cname, a], [], [])
+    def test__get_IP_addresses_CNAME(self, lookupAddress):
+        cname = dns.RRHeader(
+            name="address",
+            type=dns.CNAME,
+            payload=dns.Record_CNAME(name="thing"),
+        )
+
+        ip_address = "127.0.0.1"
+        a = dns.RRHeader(
+            name="thing", type=dns.A, payload=dns.Record_A(address=ip_address),
+        )
+
+        lookupAddress.return_value = ([cname, a], [], [])
         result = self.successResultOf(_get_IP_addresses('address'))
         self.assertEqual(result, [ip_address])
-
-        # Test given a host_address which is an IP address
-        result = self.successResultOf(_get_IP_addresses(ip_address))
-        self.assertEqual(result, [ip_address])
-
-        # Test given a bad host_address
-        RRHeader.return_value = ([], [], [])
-        result = self.successResultOf(_get_IP_addresses(' '))
-        self.assertEqual(None, result)
 
     @patch('afkak.client.KafkaBrokerClient')
     def test_get_brokerclient(self, broker):
