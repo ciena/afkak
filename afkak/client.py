@@ -11,7 +11,7 @@ import logging
 import random
 import collections
 from functools import partial
-from twisted.names import client as DNSclient
+from twisted.names import client as DNSclient, dns
 from twisted.internet.abstract import isIPAddress
 
 from twisted.internet.defer import (
@@ -867,10 +867,13 @@ def _get_IP_addresses(host_address):
     else:
         answers, auth, addit = yield DNSclient.lookupAddress(host_address)
         if answers:
-            IP_addresses = []
-            for answer in answers:
-                IP_addresses.append(answer.payload.dottedQuad())
-            returnValue(IP_addresses)
+            returnValue(
+                [
+                    answer.payload.dottedQuad()
+                    for answer in answers
+                    if answer.type == dns.A
+                ],
+            )
         else:
             returnValue(None)
 

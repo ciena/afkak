@@ -83,7 +83,7 @@ class ConsumerExample(object):
             return result
         dl.addBoth(_stop_reactor)
 
-    def msg_processor(self, msglist):
+    def msg_processor(self, consumer, msglist):
         for msg in msglist:
             log.info("proc: msg: %r", msg)
 
