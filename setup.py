@@ -6,7 +6,7 @@ setup(
     name="afkak",
     version="2.3.0",
 
-    install_requires=['Twisted>=13.2.0'],
+    install_requires=['Twisted>=16.5.0'],
     extras_require={
         'FastMurmur2': ['Murmur>=0.1.3'],
     },
