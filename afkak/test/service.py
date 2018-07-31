@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2015 Cyan, Inc.
 
+from datetime import datetime, timedelta
 import logging
+from pprint import pformat
 import re
 import select
 import subprocess
@@ -18,6 +20,8 @@ __all__ = [
     'SpawnedService',
 ]
 
+_STOP_TIMEOUT = timedelta(seconds=60)
+
 
 class ExternalService(object):  # pragma: no cover
     def __init__(self, host, port):
@@ -32,132 +36,93 @@ class ExternalService(object):  # pragma: no cover
         pass
 
 
-class SpawnedService(threading.Thread):
-    def __init__(self, args=None, env=None, tag=''):
-        threading.Thread.__init__(self)
+class SpawnedService(object):
+    _thread = None
 
-        self.args = args
-        self.env = env
-        self.child = None
-        self.tag = tag if not tag else '{}:'.format(tag)
-        self.captured_stdout = []
-        self.captured_stderr = []
+    def __init__(self, name, log, args, env, start_re):
+        self._name = name
+        self._log = log
+        self._args = args
+        self._env = env
+        self._start_re = start_re
+        self._started = threading.Event()
+        self._should_die = threading.Event()
 
-        self.should_die = threading.Event()
-
-    def run(self):
-        self.run_with_handles()
-
-    def run_with_handles(self):
-        killing_time = 60  # Wait up to 60 seconds before resorting to kill
-        log.debug("self.args:%r self.env:%r", self.args, self.env)
-        self.child = subprocess.Popen(
-            self.args,
-            env=self.env,
-            bufsize=1,
+    def _run(self):
+        self._log.debug("Starting args=%r env=%s", self._args, pformat(self._env))
+        proc = subprocess.Popen(
+            self._args,
+            env=self._env,
+            bufsize=1,  # Line buffered.
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
-        alive = True
+            stderr=subprocess.STDOUT,
+        )
 
+        stop_deadline = None
+        closed = False
+        killed = False
         while True:
-            (rds, _, _) = select.select(
-                [self.child.stdout, self.child.stderr], [], [], 0.25)
+            if closed:
+                proc.wait()
+            else:
+                (rds, _, _) = select.select([proc.stdout], [], [], 0.01)
 
-            if self.child.stdout in rds:
-                line = self.child.stdout.readline()
-                self.captured_stdout.append(line)
+                if proc.stdout in rds:
+                    line = proc.stdout.readline().decode('utf-8', 'backslashescape')
+                    if line:
+                        self._log.debug(line.rstrip('\r\n'))
+                        if self._start_re.search(line):
+                            self._log.debug("Marking subprocess started")
+                            self._started.set()
+                    else:
+                        proc.stdout.close()
+                        closed = True
+                        self._log.debug("Subprocess stdout closed")
+                    continue  # Loop around to read any more output.
 
-            if self.child.stderr in rds:  # pragma: no cover
-                line = self.child.stderr.readline()
-                self.captured_stderr.append(line)
+            returncode = proc.poll()
+            if stop_deadline is None:
+                if self._should_die.is_set():
+                    self._log.info("Terminating subprocess")
+                    proc.terminate()
+                    stop_deadline = datetime.utcnow() + _STOP_TIMEOUT
 
-            if self.should_die.is_set():
-                self.child.terminate()
-
-                start_time = time.time()
-                while self.child.poll() is None:
-                    time.sleep(0.1)
-                    if time.time() > start_time + killing_time:
-                        import datetime
-                        now = datetime.datetime.now().isoformat()
-                        log.error(
-                            'Child process: %r failed to exit within: %d. '
-                            'Resorting to kill at: %s.', self.child,
-                            killing_time, now)
-                        self.child.kill()
-                        self.dump_logs()
-                alive = False
-
-            poll_results = self.child.poll()
-            if poll_results is not None:
-                if not alive:
+                if returncode is not None:
+                    self._log.critical("Subprocess with args=%r, env=%r has died unexpectedly: returncode=%d",
+                                       self._args, self._env, returncode)
+                    raise Exception("Subprocess died unexpectedly with status {!r}".format(returncode))
+            else:
+                if returncode is not None:
+                    self._log.info("Subprocess exited: returncode=%d", returncode)
                     break
-                else:  # pragma: no cover
-                    raise RuntimeError(
-                        "Subprocess has died. Aborting. "
-                        "(args=%s)\n"
-                        "____________________"
-                        "Service stdout output:"
-                        "____________________\n%s"
-                        "____________________"
-                        "Service stderr output:"
-                        "____________________\n%s"
-                        "____________________"
-                        "Service stderr complete:"
-                        "__________________\n" % (
-                            ' '.join(str(x) for x in self.args),
-                            ' '.join(self.captured_stdout),
-                            ' '.join(self.captured_stderr)))
 
-    def dump_logs(self):  # pragma: no cover
-        if not os.environ.get('DUMP_SERVICE_LOGS'):
-            log.info('Skipping dumping service(%r) logs. '
-                     'Set DUMP_SERVICE_LOGS to enable', self)
-            return
-        log.debug(
-            '____________________Service stdout output:____________________')
-        for line in self.captured_stdout:
-            log.debug(line.rstrip())
-        log.debug(
-            '____________________Service stderr output:____________________')
-        for line in self.captured_stderr:
-            log.debug(line.rstrip())
-        log.debug(
-            '____________________Service stderr complete:__________________')
+                if not killed and datetime.utcnow() > stop_deadline:
+                    log.error(
+                        'Child process %r failed to exit within %d. Resorting to kill.',
+                        proc, _STOP_TIMEOUT,
+                    )
+                    proc.kill()
+                    killed = True
 
-    def wait_for(self, pattern, timeout=10):
-        t1 = time.time()
-        while True:
-            t2 = time.time()
-            if t2 - t1 >= timeout:  # pragma: no cover
-                try:
-                    self.child.kill()
-                except OSError as exc:
-                    if exc.errno != errno.ESRCH:
-                        log.exception(
-                            "Received exception when killing child process")
-                self.dump_logs()
 
-                raise RuntimeError(
-                    "Waiting for {!r} timed out after {} seconds".format(
-                        pattern, timeout))
+    def start(self, timeout=10):
+        assert self._thread is None
+        def run():
+            try:
+                self._run()
+            except BaseException:
+                self._log.exception("Unhandled exception in fixture thread %r", self._thread)
+                os.kill(os.getpid(), 9)
 
-            if re.search(pattern, '\n'.join(
-                    self.captured_stdout), re.IGNORECASE) is not None:
-                log.info("Found pattern %r in %d seconds via stdout",
-                         pattern, (t2 - t1))
-                return
-            if re.search(pattern, '\n'.join(
-                    self.captured_stderr),
-                    re.IGNORECASE) is not None:  # pragma: no cover
-                log.info("Found pattern %r in %d seconds via stderr",
-                         pattern, (t2 - t1))
-                return
-            time.sleep(0.05)
-
-    def start(self):
-        threading.Thread.start(self)
+        self._thread = threading.Thread(target=run, name=self._name)
+        self._thread.start()
+        started = self._started.wait(timeout)
+        if not started:
+            self._log.error("Waiting for start timed out after %.2fs: terminating.", timeout)
+            self.stop()
+            raise Exception("start() timed out after {:.2f}s".format(timeout))
 
     def stop(self):
-        self.should_die.set()
-        self.join()
+        assert self._thread is not None
+        self._should_die.set()
+        self._thread.join()
