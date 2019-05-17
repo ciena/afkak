@@ -646,7 +646,7 @@ def create_message(m, key=None):
     if isinstance(m, tuple):
         ts, payload = m
     else:
-        payload = m
+        ts, payload = -1, m
 
     return Message(1, 0, key, payload, ts)
 
