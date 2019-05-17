@@ -212,6 +212,9 @@ class Producer(object):
                 if m is None:
                     continue
 
+                if isinstance(m, tuple):
+                    ts, m = m
+
                 if not isinstance(m, bytes):
                     raise TypeError('Message {} to topic {} ({!r:.100}) has type {}, but must have type {}'.format(
                         index, topic, m, type(m).__name__, type(bytes).__name__))
