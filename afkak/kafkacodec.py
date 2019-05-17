@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 
+import time
 import logging
 import struct
 import zlib
@@ -646,7 +647,7 @@ def create_message(m, key=None):
     if isinstance(m, tuple):
         ts, payload = m
     else:
-        ts, payload = -1, m
+        ts, payload = int(time.time() * 1000), m
 
     return Message(1, 0, key, payload, ts)
 
