@@ -631,7 +631,7 @@ class KafkaCodec(object):
                                           metadata, error)
 
 
-def create_message(m, key=None):
+def create_message(m, key=None, magic=1):
     """
     Construct a :class:`Message`
 
@@ -649,7 +649,7 @@ def create_message(m, key=None):
     else:
         ts, payload = int(time.time() * 1000), m
 
-    return Message(1, 0, key, payload, ts)
+    return Message(magic, 0, key, payload, ts)
 
 
 def create_gzip_message(message_set):

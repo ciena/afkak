@@ -64,6 +64,7 @@ OffsetFetchRequest = namedtuple("OffsetFetchRequest", ["topic", "partition"])
 # Response payloads
 ProduceResponse = namedtuple("ProduceResponse",
                              ["topic", "partition", "error", "offset", "throttle_time"])
+ProduceResponse.__new__.func_defaults = (None, None, None, None, -1)
 
 FetchResponse = namedtuple("FetchResponse", ["topic", "partition", "error",
                                              "highwaterMark", "messages"])
@@ -102,7 +103,7 @@ SourcedMessage = namedtuple(
 
 class Message(namedtuple("Message", ["magic", "attributes", "key", "value", "timestamp"])):
     """
-    A Kafka `message`_ in format 1.
+    A Kafka `message`_ in format 0 or 1.
 
     :ivar int magic: Message format version, always 1.
     :ivar int attributes: Compression flags.
@@ -117,7 +118,7 @@ class Message(namedtuple("Message", ["magic", "attributes", "key", "value", "tim
     __slots__ = ()
 
     def __repr__(self):
-        bits = ['<Message v1']
+        bits = ['<Message v%i' % self.magic]
 
         if self.attributes != 0:
             if self.attributes == CODEC_GZIP:
@@ -140,6 +141,7 @@ class Message(namedtuple("Message", ["magic", "attributes", "key", "value", "tim
 
         bits.append('>')
         return ''.join(bits)
+Message.__new__.func_defaults = (None, None, None, None, -1)
 
 
 #################

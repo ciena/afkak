@@ -181,11 +181,11 @@ class TestKafkaCodec(TestCase):
         self.assertEqual(encoded, expect)
 
     def test_encode_message(self):
-        message = create_message(b"test", b"key")
+        message = create_message((47, b"test"), b"key", magic=1)
         encoded = KafkaCodec._encode_message(message)
         expect = b"".join([
-            struct.pack(">i", -1427009701),  # CRC
-            struct.pack(">bb", 0, 0),        # Magic, flags
+            struct.pack(">i", -1232077792),  # CRC
+            struct.pack(">bbq", 1, 0, 47),        # Magic, flags, timestamp
             struct.pack(">i", 3),            # Length of key
             b"key",                          # key
             struct.pack(">i", 4),            # Length of value
@@ -209,7 +209,7 @@ class TestKafkaCodec(TestCase):
             KafkaCodec._decode_message(encoded, offset))[0]
 
         self.assertEqual(returned_offset, offset)
-        self.assertEqual(decoded_message, create_message(b"test", b"key"))
+        self.assertEqual(decoded_message, create_message((-1, b"test"), b"key", magic=0))
 
     def test_encode_message_failure(self):
         self.assertRaises(ProtocolError,
@@ -314,11 +314,11 @@ class TestKafkaCodec(TestCase):
 
         returned_offset1, decoded_message1 = msg1
         self.assertEqual(returned_offset1, 0)
-        self.assertEqual(decoded_message1, create_message(b"v1"))
+        self.assertEqual(decoded_message1, create_message((-1, b"v1"), magic=0))
 
         returned_offset2, decoded_message2 = msg2
         self.assertEqual(returned_offset2, 0)
-        self.assertEqual(decoded_message2, create_message(b"v2"))
+        self.assertEqual(decoded_message2, create_message((-1, b"v2"), magic=0))
 
     def test_decode_message_checksum_error(self):
         invalid_encoded_message = b"This is not a valid encoded message"
@@ -361,10 +361,10 @@ class TestKafkaCodec(TestCase):
         returned_offset2, decoded_message2 = msg2
 
         self.assertEqual(returned_offset1, 0)
-        self.assertEqual(decoded_message1, create_message(b"v1", b"k1"))
+        self.assertEqual(decoded_message1, create_message((-1, b"v1"), b"k1", magic=0))
 
         self.assertEqual(returned_offset2, 1)
-        self.assertEqual(decoded_message2, create_message(b"v2", b"k2"))
+        self.assertEqual(decoded_message2, create_message((-1, b"v2"), b"k2", magic=0))
 
     def test_get_response_correlation_id(self):
         t1 = b"topic1"
@@ -435,14 +435,14 @@ class TestKafkaCodec(TestCase):
     def test_decode_produce_response(self):
         t1 = "topic1"
         t2 = u"topic2"
-        encoded = struct.pack('>iih%dsiihqihqh%dsiihq' % (len(t1), len(t2)),
-                              2, 2, len(t1), t1.encode(), 2, 0, 0, 10, 1, 1, 20,
-                              len(t2), t2.encode(), 1, 0, 0, 30)
+        encoded = struct.pack('>iih%dsiihqlihqlh%dsiihql' % (len(t1), len(t2)),
+                              2, 2, len(t1), t1.encode(), 2, 0, 0, 10, 4, 1, 1, 20, 5,
+                              len(t2), t2.encode(), 1, 0, 0, 30, 6)
         responses = list(KafkaCodec.decode_produce_response(encoded))
         self.assertEqual(responses,
-                         [ProduceResponse(t1, 0, 0, 10),
-                          ProduceResponse(t1, 1, 1, 20),
-                          ProduceResponse(t2, 0, 0, 30)])
+                         [ProduceResponse(t1, 0, 0, 10, 4),
+                          ProduceResponse(t1, 1, 1, 20, 5),
+                          ProduceResponse(t2, 0, 0, 30, 6)])
 
     def test_encode_fetch_request(self):
         requests = [
