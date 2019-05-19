@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 
+from ._logronomicon import Log, StdlibLogBackend, TwistedLogBackend
 from .client import KafkaClient
 from .common import (
     CODEC_GZIP, CODEC_LZ4, CODEC_NONE, CODEC_SNAPPY, OFFSET_COMMITTED,
@@ -23,6 +24,7 @@ __license__ = 'Apache License 2.0'
 __all__ = [
     'KafkaClient', 'Producer', 'Consumer',
     'RoundRobinPartitioner', 'HashedPartitioner',
+    'Log', 'StdlibLogBackend', 'TwistedLogBackend',
     'create_message', 'create_message_set',
     'CODEC_NONE', 'CODEC_GZIP', 'CODEC_LZ4', 'CODEC_SNAPPY',
     'OFFSET_EARLIEST', 'OFFSET_LATEST', 'OFFSET_COMMITTED',

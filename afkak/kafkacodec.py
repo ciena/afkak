@@ -4,7 +4,6 @@
 
 from __future__ import absolute_import
 
-import logging
 import struct
 import zlib
 from binascii import hexlify
@@ -25,9 +24,6 @@ from .common import (
     PartitionMetadata, ProduceResponse, ProtocolError, TopicMetadata,
     UnsupportedCodecError,
 )
-
-log = logging.getLogger(__name__)
-log.addHandler(logging.NullHandler())
 
 _SUPPORTED_CODECS = (CODEC_GZIP, CODEC_NONE, CODEC_SNAPPY)
 ATTRIBUTE_CODEC_MASK = 0x03
