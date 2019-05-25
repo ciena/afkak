@@ -154,10 +154,11 @@ class KafkaCodec(object):
         The magic number of a message is a format version number.  The only
         supported magic number right now is one.  Format::
 
-            Message => Crc MagicByte Attributes Key Value
+            Message => Crc MagicByte Attributes Timestamp Key Value
               Crc => int32
               MagicByte => int8
               Attributes => int8
+              Timestamp => int64
               Key => bytes
               Value => bytes
         """
@@ -286,7 +287,6 @@ class KafkaCodec(object):
 
         message = cls._encode_message_header(client_id, correlation_id,
                                              KafkaCodec.PRODUCE_KEY, api_version=1)
-
         message += struct.pack('>hii', acks, timeout, len(grouped_payloads))
 
         for topic, topic_payloads in grouped_payloads.items():
@@ -314,9 +314,10 @@ class KafkaCodec(object):
             topic, cur = read_short_ascii(data, cur)
             ((num_partitions,), cur) = relative_unpack('>i', data, cur)
             for _i in range(num_partitions):
-                ((partition, error, offset, throttle_time), cur) = relative_unpack('>ihql', data, cur)
+                ((partition, error, offset), cur) = relative_unpack('>ihq', data, cur)
+                yield ProduceResponse(topic, partition, error, offset)
 
-                yield ProduceResponse(topic, partition, error, offset, throttle_time)
+        ((throttle_time,), cur) = relative_unpack('>l', data, cur)
 
     @classmethod
     def encode_fetch_request(cls, client_id, correlation_id, payloads=None,

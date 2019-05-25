@@ -63,7 +63,7 @@ OffsetFetchRequest = namedtuple("OffsetFetchRequest", ["topic", "partition"])
 
 # Response payloads
 ProduceResponse = namedtuple("ProduceResponse",
-                             ["topic", "partition", "error", "offset", "throttle_time"])
+                             ["topic", "partition", "error", "offset"])
 ProduceResponse.__new__.func_defaults = (None, None, None, None, -1)
 
 FetchResponse = namedtuple("FetchResponse", ["topic", "partition", "error",
