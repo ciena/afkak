@@ -6,7 +6,7 @@ from setuptools import find_packages, setup
 
 # NB: This version is extracted by the Makefile using awk; don't change the
 # formatting here!
-version = "3.0.0"
+version = "3.0.0+comfy5"
 
 with open('README.md', 'r') as fin:
     readme_lines = fin.readlines()
