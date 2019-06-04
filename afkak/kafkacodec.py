@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import
 
+import time
 import logging
 import struct
 import zlib
@@ -151,17 +152,18 @@ class KafkaCodec(object):
         Encode a single message.
 
         The magic number of a message is a format version number.  The only
-        supported magic number right now is zero.  Format::
+        supported magic number right now is one.  Format::
 
-            Message => Crc MagicByte Attributes Key Value
+            Message => Crc MagicByte Attributes Timestamp Key Value
               Crc => int32
               MagicByte => int8
               Attributes => int8
+              Timestamp => int64
               Key => bytes
               Value => bytes
         """
-        if message.magic == 0:
-            msg = struct.pack('>BB', message.magic, message.attributes)
+        if message.magic == 1:
+            msg = struct.pack('>BBq', message.magic, message.attributes, message.timestamp)
             msg += write_int_string(message.key)
             msg += write_int_string(message.value)
             crc = zlib.crc32(msg) & 0xffffffff  # Ensure unsigned
@@ -284,8 +286,7 @@ class KafkaCodec(object):
         grouped_payloads = group_by_topic_and_partition(payloads)
 
         message = cls._encode_message_header(client_id, correlation_id,
-                                             KafkaCodec.PRODUCE_KEY)
-
+                                             KafkaCodec.PRODUCE_KEY, api_version=1)
         message += struct.pack('>hii', acks, timeout, len(grouped_payloads))
 
         for topic, topic_payloads in grouped_payloads.items():
@@ -314,8 +315,9 @@ class KafkaCodec(object):
             ((num_partitions,), cur) = relative_unpack('>i', data, cur)
             for _i in range(num_partitions):
                 ((partition, error, offset), cur) = relative_unpack('>ihq', data, cur)
-
                 yield ProduceResponse(topic, partition, error, offset)
+
+        ((throttle_time,), cur) = relative_unpack('>l', data, cur)
 
     @classmethod
     def encode_fetch_request(cls, client_id, correlation_id, payloads=None,
@@ -630,7 +632,7 @@ class KafkaCodec(object):
                                           metadata, error)
 
 
-def create_message(payload, key=None):
+def create_message(m, key=None, magic=1):
     """
     Construct a :class:`Message`
 
@@ -640,9 +642,15 @@ def create_message(payload, key=None):
         determine message identity on a compacted topic.
     :type key: :class:`bytes` or ``None``
     """
-    assert payload is None or isinstance(payload, bytes), 'payload={!r} should be bytes or None'.format(payload)
+    assert (m is None or isinstance(m, bytes) or isinstance(m, tuple),
+            'payload={!r} should be bytes, a (timestamp, bytes) tuple,  or None'.format(m))
     assert key is None or isinstance(key, bytes), 'key={!r} should be bytes or None'.format(key)
-    return Message(0, 0, key, payload)
+    if isinstance(m, tuple):
+        ts, payload = m
+    else:
+        ts, payload = int(time.time() * 1000), m
+
+    return Message(magic, 0, key, payload, ts)
 
 
 def create_gzip_message(message_set):
@@ -657,7 +665,7 @@ def create_gzip_message(message_set):
     encoded_message_set = KafkaCodec._encode_message_set(message_set)
 
     gzipped = gzip_encode(encoded_message_set)
-    return Message(0, CODEC_GZIP, None, gzipped)
+    return Message(1, CODEC_GZIP, None, gzipped, -1)
 
 
 def create_snappy_message(message_set):
@@ -671,7 +679,7 @@ def create_snappy_message(message_set):
     """
     encoded_message_set = KafkaCodec._encode_message_set(message_set)
     snapped = snappy_encode(encoded_message_set)
-    return Message(0, CODEC_SNAPPY, None, snapped)
+    return Message(1, CODEC_SNAPPY, None, snapped, -1)
 
 
 def create_message_set(requests, codec=CODEC_NONE):

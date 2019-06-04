@@ -104,63 +104,64 @@ class TestKafkaCodec(TestCase):
         payload = b"test"
         key = b"key"
         msg = create_message(payload, key)
-        self.assertEqual(msg.magic, 0)
+        self.assertEqual(msg.magic, 1)
         self.assertEqual(msg.attributes, 0)
         self.assertEqual(msg.key, key)
         self.assertEqual(msg.value, payload)
 
     def test_create_gzip(self):
-        message_list = [create_message(b"v1", None),
-                        create_message(b"v2", key=b'42')]
+        message_list = [create_message((-1, b"v1"), None),
+                        create_message((-1, b"v2"), key=b'42')]
+        
         msg = create_gzip_message(message_list)
-        self.assertEqual(msg.magic, 0)
+        self.assertEqual(msg.magic, 1)
         self.assertEqual(msg.attributes, ATTRIBUTE_CODEC_MASK & CODEC_GZIP)
         self.assertEqual(msg.key, None)
         # Need to decode to check since gzipped payload is non-deterministic
         decoded = gzip_decode(msg.value)
         expect = b"".join([
             struct.pack(">q", 0),           # MsgSet offset
-            struct.pack(">i", 16),          # MsgSet size
-            struct.pack(">i", 1285512130),  # CRC
-            struct.pack(">bb", 0, 0),       # Magic, flags
+            struct.pack(">i", 24),          # MsgSet size
+            struct.pack(">i", -346518548),  # CRC
+            struct.pack(">bbq", 1, 0, -1),       # Magic, flags, timestamp
             struct.pack(">i", -1),          # -1 indicates a null key
             struct.pack(">i", 2),           # Msg length (bytes)
             b"v1",                          # Message contents
 
             struct.pack(">q", 0),           # MsgSet offset
-            struct.pack(">i", 18),          # MsgSet size
-            struct.pack(">i", 1929437987),  # CRC
-            struct.pack(">bb", 0, 0),       # Magic, flags
+            struct.pack(">i", 26),          # MsgSet size
+            struct.pack(">i", -19620068),  # CRC
+            struct.pack(">bbq", 1, 0, -1),       # Magic, flags, timestamp
             struct.pack(">i2s", 2, b'42'),  # Key is 2 bytes long, 42
             struct.pack(">i", 2),           # Msg length (bytes)
             b"v2",                          # Message contents
-        ])
-
+        ])        
         self.assertEqual(decoded, expect)
 
     def test_create_snappy(self):
         if not has_snappy():
             raise SkipTest("Snappy not available")  # pragma: no cover
-        message_list = [create_message(b"v3", key=b'84'),
-                        create_message(b"v4", None)]
+        message_list = [create_message((47, b"v3"), key=b'84'),
+                        create_message((48, b"v4"), None)]
+
         msg = create_snappy_message(message_list)
-        self.assertEqual(msg.magic, 0)
+        self.assertEqual(msg.magic, 1)
         self.assertEqual(msg.attributes, ATTRIBUTE_CODEC_MASK & CODEC_SNAPPY)
         self.assertEqual(msg.key, None)
         decoded = snappy_decode(msg.value)
         expect = b"".join([
             struct.pack(">q", 0),           # MsgSet offset
-            struct.pack(">i", 18),          # MsgSet size
-            struct.pack(">i", 813233088),   # CRC
-            struct.pack(">bb", 0, 0),       # Magic, flags
+            struct.pack(">i", 26),          # MsgSet size
+            struct.pack(">i", -892550681),   # CRC
+            struct.pack(">bbq", 1, 0, 47),       # Magic, flags
             struct.pack(">i2s", 2, b'84'),  # Key is 2 bytes long, '84'
             struct.pack(">i", 2),           # Msg length (bytes)
             b"v3",                          # Message contents
 
             struct.pack(">q", 0),           # MsgSet offset
-            struct.pack(">i", 16),          # MsgSet size
-            struct.pack(">i", 1022734157),  # CRC
-            struct.pack(">bb", 0, 0),       # Magic, flags
+            struct.pack(">i", 24),          # MsgSet size
+            struct.pack(">i", 100172533),  # CRC
+            struct.pack(">bbq", 1, 0, 48),       # Magic, flags
             struct.pack(">i", -1),          # -1 indicates a null key
             struct.pack(">i", 2),           # Msg length (bytes)
             b"v4",                          # Message contents
@@ -181,11 +182,11 @@ class TestKafkaCodec(TestCase):
         self.assertEqual(encoded, expect)
 
     def test_encode_message(self):
-        message = create_message(b"test", b"key")
+        message = create_message((47, b"test"), b"key", magic=1)
         encoded = KafkaCodec._encode_message(message)
         expect = b"".join([
-            struct.pack(">i", -1427009701),  # CRC
-            struct.pack(">bb", 0, 0),        # Magic, flags
+            struct.pack(">i", -1232077792),  # CRC
+            struct.pack(">bbq", 1, 0, 47),        # Magic, flags, timestamp
             struct.pack(">i", 3),            # Length of key
             b"key",                          # key
             struct.pack(">i", 4),            # Length of value
@@ -209,34 +210,34 @@ class TestKafkaCodec(TestCase):
             KafkaCodec._decode_message(encoded, offset))[0]
 
         self.assertEqual(returned_offset, offset)
-        self.assertEqual(decoded_message, create_message(b"test", b"key"))
+        self.assertEqual(decoded_message, create_message((-1, b"test"), b"key", magic=0))
 
     def test_encode_message_failure(self):
         self.assertRaises(ProtocolError,
                           KafkaCodec._encode_message,
-                          Message(1, 0, "key", "test"))
+                          Message(0, 0, "key", "test"))
 
     def test_encode_message_set(self):
         message_set = [
-            create_message(b"v1", b"k1"),
-            create_message(b"v2", b"k2"),
+            create_message((-1, b"v1"), b"k1"),
+            create_message((-1, b"v2"), b"k2"),
         ]
-
+        
         encoded = KafkaCodec._encode_message_set(message_set)
         expect = b"".join([
             struct.pack(">q", 0),           # MsgSet Offset
-            struct.pack(">i", 18),          # Msg Size
-            struct.pack(">i", 1474775406),  # CRC
-            struct.pack(">bb", 0, 0),       # Magic, flags
+            struct.pack(">i", 26),          # Msg Size
+            struct.pack(">i", -634178223),  # CRC
+            struct.pack(">bbq", 1, 0, -1),       # Magic, flags, timestamp
             struct.pack(">i", 2),           # Length of key
             b"k1",                          # Key
             struct.pack(">i", 2),           # Length of value
             b"v1",                          # Value
 
             struct.pack(">q", 0),          # MsgSet Offset
-            struct.pack(">i", 18),         # Msg Size
-            struct.pack(">i", -16383415),  # CRC
-            struct.pack(">bb", 0, 0),      # Magic, flags
+            struct.pack(">i", 26),         # Msg Size
+            struct.pack(">i", 1926397558),  # CRC
+            struct.pack(">bbq", 1, 0, -1),      # Magic, flags, timestamp
             struct.pack(">i", 2),          # Length of key
             b"k2",                         # Key
             struct.pack(">i", 2),          # Length of value
@@ -274,10 +275,10 @@ class TestKafkaCodec(TestCase):
         returned_offset2, decoded_message2 = msg2
 
         self.assertEqual(returned_offset1, 0)
-        self.assertEqual(decoded_message1, create_message(b"v1", b"k1"))
+        self.assertEqual(decoded_message1, create_message((-1, b"v1"), b"k1", magic=0))
 
         self.assertEqual(returned_offset2, 1)
-        self.assertEqual(decoded_message2, create_message(b"v2", b"k2"))
+        self.assertEqual(decoded_message2, create_message((-1, b"v2"), b"k2", magic=0))
 
     def test_decode_message_gzip(self):
         gzip_encoded = (b'\xc0\x11\xb2\xf0\x00\x01\xff\xff\xff\xff\x00\x00\x000'
@@ -293,11 +294,11 @@ class TestKafkaCodec(TestCase):
 
         returned_offset1, decoded_message1 = msg1
         self.assertEqual(returned_offset1, 0)
-        self.assertEqual(decoded_message1, create_message(b"v1"))
+        self.assertEqual(decoded_message1, create_message((-1, b"v1"), magic=0))
 
         returned_offset2, decoded_message2 = msg2
         self.assertEqual(returned_offset2, 0)
-        self.assertEqual(decoded_message2, create_message(b"v2"))
+        self.assertEqual(decoded_message2, create_message((-1, b"v2"), magic=0))
 
     def test_decode_message_snappy(self):
         if not has_snappy():
@@ -314,11 +315,11 @@ class TestKafkaCodec(TestCase):
 
         returned_offset1, decoded_message1 = msg1
         self.assertEqual(returned_offset1, 0)
-        self.assertEqual(decoded_message1, create_message(b"v1"))
+        self.assertEqual(decoded_message1, create_message((-1, b"v1"), magic=0))
 
         returned_offset2, decoded_message2 = msg2
         self.assertEqual(returned_offset2, 0)
-        self.assertEqual(decoded_message2, create_message(b"v2"))
+        self.assertEqual(decoded_message2, create_message((-1, b"v2"), magic=0))
 
     def test_decode_message_checksum_error(self):
         invalid_encoded_message = b"This is not a valid encoded message"
@@ -361,10 +362,10 @@ class TestKafkaCodec(TestCase):
         returned_offset2, decoded_message2 = msg2
 
         self.assertEqual(returned_offset1, 0)
-        self.assertEqual(decoded_message1, create_message(b"v1", b"k1"))
+        self.assertEqual(decoded_message1, create_message((-1, b"v1"), b"k1", magic=0))
 
         self.assertEqual(returned_offset2, 1)
-        self.assertEqual(decoded_message2, create_message(b"v2", b"k2"))
+        self.assertEqual(decoded_message2, create_message((-1, b"v2"), b"k2", magic=0))
 
     def test_get_response_correlation_id(self):
         t1 = b"topic1"
@@ -379,21 +380,21 @@ class TestKafkaCodec(TestCase):
     def test_encode_produce_request(self):
         requests = [
             ProduceRequest("topic1", 0, [
-                create_message(b"a"),
-                create_message(b"b"),
+                create_message((-1, b"a")),
+                create_message((-1, b"b")),
             ]),
             ProduceRequest(u"topic2", 1, [
-                create_message(b"c"),
+                create_message((-1, b"c")),
             ]),
         ]
 
-        msg_a_binary = KafkaCodec._encode_message(create_message(b"a"))
-        msg_b_binary = KafkaCodec._encode_message(create_message(b"b"))
-        msg_c_binary = KafkaCodec._encode_message(create_message(b"c"))
+        msg_a_binary = KafkaCodec._encode_message(create_message((-1, b"a")))
+        msg_b_binary = KafkaCodec._encode_message(create_message((-1, b"b")))
+        msg_c_binary = KafkaCodec._encode_message(create_message((-1, b"c")))
 
         header = b"".join([
             struct.pack('>h', 0),        # Msg Header, Message type = Produce
-            struct.pack('>h', 0),        # Msg Header, API version
+            struct.pack('>h', 1),        # Msg Header, API version
             struct.pack('>i', 2),        # Msg Header, Correlation ID
             struct.pack('>h7s', 7, b"client1"),  # Msg Header, The client ID
             struct.pack('>h', 2),        # Num acks required
@@ -430,19 +431,20 @@ class TestKafkaCodec(TestCase):
 
         encoded = KafkaCodec.encode_produce_request(
             b"client1", 2, requests, 2, 100)
+
         self.assertIn(encoded, [expected1, expected2])
 
     def test_decode_produce_response(self):
         t1 = "topic1"
         t2 = u"topic2"
-        encoded = struct.pack('>iih%dsiihqihqh%dsiihq' % (len(t1), len(t2)),
-                              2, 2, len(t1), t1.encode(), 2, 0, 0, 10, 1, 1, 20,
-                              len(t2), t2.encode(), 1, 0, 0, 30)
+        encoded = struct.pack('>iih%dsiihqlihqlh%dsiihql' % (len(t1), len(t2)),
+                              2, 2, len(t1), t1.encode(), 2, 0, 0, 10, 4, 1, 1, 20, 5,
+                              len(t2), t2.encode(), 1, 0, 0, 30, 6)
         responses = list(KafkaCodec.decode_produce_response(encoded))
         self.assertEqual(responses,
-                         [ProduceResponse(t1, 0, 0, 10),
-                          ProduceResponse(t1, 1, 1, 20),
-                          ProduceResponse(t2, 0, 0, 30)])
+                         [ProduceResponse(t1, 0, 0, 10, 4),
+                          ProduceResponse(t1, 1, 1, 20, 5),
+                          ProduceResponse(t2, 0, 0, 30, 6)])
 
     def test_encode_fetch_request(self):
         requests = [
@@ -494,8 +496,8 @@ class TestKafkaCodec(TestCase):
 
         encoded = struct.pack('>iih%dsiihqi%dsihqi%dsh%dsiihqi%ds' %
                               (len(t1), len(ms1), len(ms2), len(t2), len(ms3)),
-                              4, 2, len(t1), t1.encode(), 2, 0, 0, 10, len(ms1), ms1, 1,
-                              1, 20, len(ms2), ms2, len(t2), t2.encode(), 1, 0, 0, 30,
+                              4, 2, len(t1), t1.encode(), 2, 0, 1, 10, len(ms1), ms1, 1,
+                              1, 20, len(ms2), ms2, len(t2), t2.encode(), 1, 0, 1, 30,
                               len(ms3), ms3)
 
         responses = list(KafkaCodec.decode_fetch_response(encoded))

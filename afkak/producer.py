@@ -146,7 +146,7 @@ class Producer(object):
         self._batch_reqs = []  # Current batch (possibly of 1 for unbatched)
         self._waitingMsgCount = 0
         self._waitingByteCount = 0
-        self._outstanding = []  # All currently outstanding requests
+        self._outstanding = set([])  # All currently outstanding requests
         self._batch_send_d = None  # Outstanding client request to send msgs
 
         # Are we compressing messages, or just sending 'raw'?
@@ -212,6 +212,9 @@ class Producer(object):
                 if m is None:
                     continue
 
+                if isinstance(m, tuple):
+                    ts, m = m
+
                 if not isinstance(m, bytes):
                     raise TypeError('Message {} to topic {} ({!r:.100}) has type {}, but must have type {}'.format(
                         index, topic, m, type(m).__name__, type(bytes).__name__))
@@ -226,7 +229,7 @@ class Producer(object):
         self._waitingByteCount += byte_cnt
 
         # Add request to list of outstanding reqs' callback to remove
-        self._outstanding.append(d)
+        self._outstanding.add(d)
         d.addBoth(self._remove_from_outstanding, d)
         # See if we have enough messages in the batch to do a send.
         self._check_send_batch()
