@@ -146,7 +146,7 @@ class Producer(object):
         self._batch_reqs = []  # Current batch (possibly of 1 for unbatched)
         self._waitingMsgCount = 0
         self._waitingByteCount = 0
-        self._outstanding = {}  # All currently outstanding requests
+        self._outstanding = set([])  # All currently outstanding requests
         self._batch_send_d = None  # Outstanding client request to send msgs
 
         # Are we compressing messages, or just sending 'raw'?
@@ -229,7 +229,7 @@ class Producer(object):
         self._waitingByteCount += byte_cnt
 
         # Add request to list of outstanding reqs' callback to remove
-        self._outstanding[id(d)] = d
+        self._outstanding.add(d)
         d.addBoth(self._remove_from_outstanding, d)
         # See if we have enough messages in the batch to do a send.
         self._check_send_batch()
@@ -657,11 +657,11 @@ class Producer(object):
 
     def _remove_from_outstanding(self, result, d):
         """ Remove 'd' from the list of outstanding requests"""
-        self._outstanding.pop(id(d))
+        self._outstanding.remove(d)
         return result
 
     def _cancel_outstanding(self):
         """Cancel all of our outstanding requests"""
-        for d in self._outstanding.values():
+        for d in list(self._outstanding):
             d.addErrback(lambda _: None)  # Eat any uncaught errors
             d.cancel()
