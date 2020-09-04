@@ -28,7 +28,6 @@ jobs:
         set -xe
         python -VV
         python -m pip install --upgrade pip tox tox-gh-actions
-        python -m tox --notest -e test,lint
 
     - name: Tox
       run: |
