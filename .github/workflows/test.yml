@@ -1,0 +1,35 @@
+name: Test
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  tests:
+    name: "Python ${{ matrix.python-version }}"
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["2.7", "3.6", "3.7", "3.8", "pypy", "pypy3"]
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: "${{ matrix.python-version }}"
+
+    - name: Install dependencies
+      run: |
+        set -xe
+        python -VV
+        python -m pip install --upgrade pip tox tox-gh-actions
+        python -m tox --notest -e test,lint
+
+    - name: Tox
+      run: |
+        python -m tox
