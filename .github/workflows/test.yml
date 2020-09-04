@@ -8,12 +8,13 @@ on:
 
 jobs:
   tests:
-    name: "Python ${{ matrix.python-version }}"
+    name: "Python ${{ matrix.python-version }} + Kafka ${{ matrix.kafka-version }}"
     runs-on: ubuntu-20.04
 
     strategy:
       matrix:
         python-version: ["2.7", "3.6", "3.7", "3.8", "pypy2", "pypy3"]
+        kafka-version: ["0.9.0.1", "1.1.1"]
 
     steps:
     - uses: actions/checkout@v2
@@ -36,3 +37,5 @@ jobs:
     - name: Tox
       run: |
         python -m tox
+      env:
+        KAFKA_VERSION: "${{ matrix.kafka-version }}"
