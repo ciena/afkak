@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2016 Cyan, Inc.
-# Copyright (C) 2016-2019 Ciena Corporation
+# Copyright (C) 2016-2020 Ciena Corporation
 
 from setuptools import find_packages, setup
 
@@ -60,6 +60,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Communications',
