@@ -10,6 +10,8 @@ jobs:
   unit-tests:
     name: "Python ${{ matrix.python-version }} Unit Tests"
     runs-on: ubuntu-20.04
+    env:
+      TOX_SUITE: unit
 
     strategy:
       matrix:
@@ -31,11 +33,12 @@ jobs:
       run: |
         set -xeu
         python -VV
-        python -m pip install --upgrade pip tox tox-gh-actions
+        python -m pip install tox tox-gh-actions
 
     - name: Tox
       run: |
         python -m tox
+
   docs:
     name: "Documentation"
     runs-on: ubuntu-20.04
@@ -62,7 +65,7 @@ jobs:
       run: |
         set -xeu
         python -VV
-        python -m pip install --upgrade pip tox tox-gh-actions
+        python -m pip install tox
 
     - name: Build Documentation
       run: python -m tox -e docs
@@ -82,7 +85,7 @@ jobs:
       run: |
         set -xeu
         python -VV
-        python -m pip install --upgrade pip tox tox-gh-actions
+        python -m pip install tox
 
     - name: Check Packaging
       run: |

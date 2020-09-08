@@ -11,6 +11,7 @@ jobs:
     name: "Python ${{ matrix.python-version }} + Kafka ${{ matrix.kafka-version }}"
     runs-on: ubuntu-20.04
     env:
+      TOX_SUITE: int
       KAFKA_VERSION: "${{ matrix.kafka-version }}"
 
     strategy:
@@ -44,7 +45,7 @@ jobs:
       run: |
         set -xeu
         python -VV
-        python -m pip install --upgrade pip tox tox-gh-actions
+        python -m pip install tox tox-gh-actions
 
     - name: Tox
       run: |
