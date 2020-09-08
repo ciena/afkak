@@ -10,6 +10,8 @@ jobs:
   tests:
     name: "Python ${{ matrix.python-version }} + Kafka ${{ matrix.kafka-version }}"
     runs-on: ubuntu-20.04
+    env:
+      KAFKA_VERSION: "${{ matrix.kafka-version }}"
 
     strategy:
       max-parallel: 8
@@ -42,15 +44,14 @@ jobs:
 
     - name: Install dependencies
       run: |
-        set -xe
+        set -xeu
         python -VV
         python -m pip install --upgrade pip tox tox-gh-actions
 
     - name: Tox
       run: |
+        export
         python -m tox
-      env:
-        KAFKA_VERSION: "${{ matrix.kafka-version }}"
 
   docs:
     name: "Documentation"
@@ -76,7 +77,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        set -xe
+        set -xeu
         python -VV
         python -m pip install --upgrade pip tox tox-gh-actions
 
@@ -96,7 +97,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        set -xe
+        set -xeu
         python -VV
         python -m pip install --upgrade pip tox tox-gh-actions
 
