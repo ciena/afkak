@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-20.04
 
     strategy:
+      max-parallel: 8
+      fail-fast: false
       matrix:
         python-version: ["2.7", "3.6", "3.7", "3.8", "pypy2", "pypy3"]
         kafka-version: ["0.9.0.1", "1.1.1"]
@@ -23,17 +25,6 @@ jobs:
       run: |
         sudo apt-get install -yqq build-essential libsnappy-dev
 
-    - name: Cache Intersphinx inventories
-      # Cache intersphinx inventories to make the build more robust in
-      # the face of upstreams going down.
-      uses: actions/cache@v2
-      with:
-        path: docs/_cache
-        key: intersphinx-${{ hashFiles('docs/conf.py') }}
-        restore-keys: |
-          intersphinx-${{ hashFiles('docs/conf.py') }}
-          intersphinx-
-
     - name: Cache Kafka tarballs
       # Cache Kafka server tarballs to be nice to the Apache servers.
       uses: actions/cache@v2
@@ -44,7 +35,7 @@ jobs:
           kafka-${{ matrix.kafka-version }}
           kafka-
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: "Set up Python ${{ matrix.python-version }}"
       uses: actions/setup-python@v2
       with:
         python-version: "${{ matrix.python-version }}"
@@ -60,3 +51,56 @@ jobs:
         python -m tox
       env:
         KAFKA_VERSION: "${{ matrix.kafka-version }}"
+
+  docs:
+    name: "Documentation"
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Cache Intersphinx inventories
+      # Cache intersphinx inventories to make the build more robust in
+      # the face of upstreams going down.
+      uses: actions/cache@v2
+      with:
+        path: docs/_cache
+        key: intersphinx-${{ hashFiles('docs/conf.py') }}
+        restore-keys: |
+          intersphinx-${{ hashFiles('docs/conf.py') }}
+          intersphinx-
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.6"
+
+    - name: Install dependencies
+      run: |
+        set -xe
+        python -VV
+        python -m pip install --upgrade pip tox tox-gh-actions
+
+    - name: Build Documentation
+      run: python -m tox -e docs
+
+  packaging:
+    name: "Packaging"
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.8"
+
+    - name: Install dependencies
+      run: |
+        set -xe
+        python -VV
+        python -m pip install --upgrade pip tox tox-gh-actions
+
+    - name: Check Packaging
+      run: |
+        python -m tox -e twine -- python setup.py sdist bdist_wheel
+        python -m tox -e twine -- twine check dist/*
