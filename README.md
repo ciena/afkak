@@ -212,6 +212,15 @@ environment before running the tests:
 make venv
 ```
 
+### Testing Strategy
+
+Afkak has two types of tests:
+
+* Unit tests — unit tests are fast tests.
+  They don't do I/O.
+
+* Integration tests — tests that run against a real Kafka broker.
+
 ### Run the unit tests
 
 To run all unit tests in all the supported Python versions (requires all
