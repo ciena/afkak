@@ -679,7 +679,7 @@ class ConsumerGroup(Coordinator):
         Processing function for the consumers. See :class:`afkak.Consumer`.
 
     :param dict consumer_kwargs:
-        Additional keyword arguments for the managed :class:`afkak.Consumer`\ s
+        Additional keyword arguments for the managed :class:`afkak.Consumer`\\ s
 
     :param float session_timeout_ms:
         The timeout used to detect failures when using Kafka's group
