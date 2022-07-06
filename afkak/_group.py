@@ -51,8 +51,8 @@ class Coordinator(object):
     """
     Private group coordinator implementation.
 
-    You almost certainly want to use :class:`afkak.ConsumerGroup` instead. The
-    parameters this class takes are documented there.
+    You almost certainly want to use :class:`afkak.ConsumerGroup` instead.
+    The parameters this class takes are documented there.
 
     """
 
