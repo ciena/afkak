@@ -23,6 +23,7 @@ jobs:
     - name: Install build dependencies
       run: |
         sudo apt-get install -yqq build-essential libsnappy-dev
+        sudo apt-get -y install python3-distutils-extra
 
     - name: "Set up Python ${{ matrix.python-version }}"
       uses: actions/setup-python@v2
