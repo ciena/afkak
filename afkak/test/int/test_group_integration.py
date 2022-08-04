@@ -505,7 +505,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
             [value] = yield self.send_messages(part, ['sentinel'])
             pending_sentinels[part] = value
         while pending_sentinels:
-            *message = yield record_stream.get()
+            [message] = yield record_stream.get()
             if pending_sentinels.get(message.partition) == message.message.value:
                 del pending_sentinels[message.partition]
 
