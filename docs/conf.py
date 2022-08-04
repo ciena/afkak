@@ -48,5 +48,5 @@ html_extra_path = ['.nojekyll']  # Disable GitHub Pages' processing.
 # filenames to write.
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', '_cache/python.inv'),
-    'twisted': ('https://twistedmatrix.com/documents/current/api/', '_cache/twisted.inv'),
+    'twisted': ('https://docs.twistedmatrix.com/en/stable/api/', '_cache/twisted.inv'),
 }
