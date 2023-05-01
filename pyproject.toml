@@ -1,3 +1,51 @@
 [build-system]
-requires = ["setuptools >= 46.4.0", "wheel"]
+requires = ["setuptools >= 61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "afkak"
+dynamic = ["version"]
+requires-python = ">=3.6"
+readme = "README.md"
+description = "Twisted Python client for Apache Kafka"
+keywords = ["kafka", "distributed messaging", "txkafka"]
+classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Framework :: Twisted',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: MacOS :: MacOS X',
+        'Operating System :: POSIX',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: Implementation :: PyPy',
+        'Topic :: Communications',
+        'Topic :: System :: Distributed Computing',
+]
+
+dependencies = [
+        'attrs >= 19.2.0',  # For functioning auto_exc=True.
+        'Twisted >= 18.7.0',  # First release with @inlineCallbacks cancellation.
+]
+
+[project.urls]
+Home-page = "https://github.com/ciena/afkak"
+Documentation = "https://afkak.readthedocs.io/en/latest/"
+Issues = "https://github.com/ciena/afkak/issues"
+Source = "https://github.com/ciena/afkak"
+
+[project.optional-dependencies]
+FastMurmur2 = ["murmurhash2"]
+snappy = ["python-snappy"]
+
+[tool.setuptools.dynamic]
+version = {attr = "afkak.__version__"}
+
+[tool.setuptools.packages]
+find = {}
+
