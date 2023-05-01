@@ -7,7 +7,7 @@ RELEASE_DIR := $(TOP)/build
 TOXDIR := $(TOP)/.tox
 VENV := $(TOP)/.env
 PYPI ?= https://pypi.python.org/simple/
-TOX := $(VENV)/bin/tox -i $(PYPI)
+TOX := $(VENV)/bin/tox
 SERVERS := $(TOP)/servers
 KAFKA_ALL_VERS := 0.9.0.1 1.1.1
 KAFKA_VER ?= 0.9.0.1
@@ -82,6 +82,9 @@ $(VENV): export LANG = $(_LANG)
 $(VENV):
 	virtualenv --python python3 --no-download $(VENV)
 	$(VENV)/bin/pip install --index-url $(PYPI) tox
+
+fmt:
+	$(AT)$(VENV)/bin/tox -e fmt
 
 # Run the integration test suite under all Kafka versions
 toxik:
