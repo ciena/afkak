@@ -18,22 +18,29 @@ import logging
 from collections import defaultdict
 from numbers import Integral
 
-from twisted.internet.defer import CancelledError as tid_CancelledError
-from twisted.internet.defer import (
-    Deferred, DeferredList, fail, inlineCallbacks, returnValue, succeed,
-)
-from twisted.internet.task import LoopingCall
-from twisted.python.failure import Failure
-
 from ._util import _coerce_topic
 from .common import (
-    CODEC_NONE, PRODUCER_ACK_LOCAL_WRITE, PRODUCER_ACK_NOT_REQUIRED,
-    BrokerResponseError, CancelledError, FailedPayloadsError, KafkaError,
-    NoResponseError, NotLeaderForPartitionError, ProduceRequest, SendRequest,
-    TopicAndPartition, UnknownTopicOrPartitionError, UnsupportedCodecError,
+    CODEC_NONE,
+    PRODUCER_ACK_LOCAL_WRITE,
+    PRODUCER_ACK_NOT_REQUIRED,
+    BrokerResponseError,
+    CancelledError,
+    FailedPayloadsError,
+    KafkaError,
+    NoResponseError,
+    NotLeaderForPartitionError,
+    ProduceRequest,
+    SendRequest,
+    TopicAndPartition,
+    UnknownTopicOrPartitionError,
+    UnsupportedCodecError,
 )
 from .kafkacodec import _SUPPORTED_CODECS, create_message_set
 from .partitioner import RoundRobinPartitioner
+from twisted.internet.defer import CancelledError as tid_CancelledError
+from twisted.internet.defer import Deferred, DeferredList, fail, inlineCallbacks, returnValue, succeed
+from twisted.internet.task import LoopingCall
+from twisted.python.failure import Failure
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -95,18 +102,20 @@ class Producer(object):
     _sendLooper = None
     _sendLooperD = None
 
-    def __init__(self, client,
-                 partitioner_class=RoundRobinPartitioner,
-                 req_acks=PRODUCER_ACK_LOCAL_WRITE,
-                 ack_timeout=DEFAULT_ACK_TIMEOUT,
-                 max_req_attempts=DEFAULT_REQ_ATTEMPTS,
-                 retry_interval=INIT_RETRY_INTERVAL,
-                 codec=None,
-                 batch_send=False,
-                 batch_every_n=BATCH_SEND_MSG_COUNT,
-                 batch_every_b=BATCH_SEND_MSG_BYTES,
-                 batch_every_t=BATCH_SEND_SECS_COUNT):
-
+    def __init__(
+        self,
+        client,
+        partitioner_class=RoundRobinPartitioner,
+        req_acks=PRODUCER_ACK_LOCAL_WRITE,
+        ack_timeout=DEFAULT_ACK_TIMEOUT,
+        max_req_attempts=DEFAULT_REQ_ATTEMPTS,
+        retry_interval=INIT_RETRY_INTERVAL,
+        codec=None,
+        batch_send=False,
+        batch_every_n=BATCH_SEND_MSG_COUNT,
+        batch_every_b=BATCH_SEND_MSG_BYTES,
+        batch_every_t=BATCH_SEND_SECS_COUNT,
+    ):
         # When messages are sent, the partition of the message is picked
         # by the partitioner object for that topic. The partitioners are
         # created as needed from the "partitioner_class" class and stored
@@ -142,15 +151,12 @@ class Producer(object):
             self.batch_every_n = batch_every_n
             self.batch_every_b = batch_every_b
             self.batch_every_t = batch_every_t
-            self.batchDesc = "{}cnt/{}bytes/{}secs".format(
-                batch_every_n, batch_every_b, batch_every_t)
+            self.batchDesc = "{}cnt/{}bytes/{}secs".format(batch_every_n, batch_every_b, batch_every_t)
             if batch_every_t:
                 self._sendLooper = LoopingCall(self._send_batch)
                 self._sendLooper.clock = self.client.reactor
-                self._sendLooperD = self._sendLooper.start(
-                    batch_every_t, now=False)
-                self._sendLooperD.addCallbacks(self._send_timer_stopped,
-                                               self._send_timer_failed)
+                self._sendLooperD = self._sendLooper.start(batch_every_t, now=False)
+                self._sendLooperD.addCallbacks(self._send_timer_stopped, self._send_timer_failed)
 
         # Current batch reqs & msgs/bytes, and all outstanding reqs
         self._batch_reqs = []  # Current batch (possibly of 1 for unbatched)
@@ -169,9 +175,7 @@ class Producer(object):
         self.codec = codec
 
     def __repr__(self):
-        return '<Producer {}:{}:{}:{}>'.format(self.partitioner_class,
-                                               self.batchDesc, self.req_acks,
-                                               self.ack_timeout)
+        return "<Producer {}:{}:{}:{}>".format(self.partitioner_class, self.batchDesc, self.req_acks, self.ack_timeout)
 
     def send_messages(self, topic, key=None, msgs=()):
         """
@@ -211,7 +215,7 @@ class Producer(object):
         try:
             topic = _coerce_topic(topic)
             if key is not None and not isinstance(key, bytes):
-                raise TypeError('key={!r} must be bytes or None'.format(key))
+                raise TypeError("key={!r} must be bytes or None".format(key))
 
             if not msgs:
                 raise ValueError("msgs must be a non-empty sequence")
@@ -223,8 +227,11 @@ class Producer(object):
                     continue
 
                 if not isinstance(m, bytes):
-                    raise TypeError('Message {} to topic {} ({!r:.100}) has type {}, but must have type {}'.format(
-                        index, topic, m, type(m).__name__, type(bytes).__name__))
+                    raise TypeError(
+                        "Message {} to topic {} ({!r:.100}) has type {}, but must have type {}".format(
+                            index, topic, m, type(m).__name__, type(bytes).__name__
+                        )
+                    )
 
                 byte_cnt += len(m)
         except Exception:
@@ -270,10 +277,12 @@ class Producer(object):
 
         For now, just log the failure and restart the loop
         """
-        log.warning('Batch timer failed: %s. Will restart.', fail.value,
-                    exc_info=(fail.type, fail.value, fail.getTracebackObject()))
-        self._sendLooperD = self._sendLooper.start(
-            self.batch_every_t, now=False)
+        log.warning(
+            "Batch timer failed: %s. Will restart.",
+            fail.value,
+            exc_info=(fail.type, fail.value, fail.getTracebackObject()),
+        )
+        self._sendLooperD = self._sendLooper.start(self.batch_every_t, now=False)
 
     def _send_timer_stopped(self, lCall):
         """
@@ -311,8 +320,7 @@ class Producer(object):
                 break
             self._req_attempts += 1
             d = Deferred()
-            self.client.reactor.callLater(
-                self._retry_interval, d.callback, True)
+            self.client.reactor.callLater(self._retry_interval, d.callback, True)
             self._retry_interval *= self.RETRY_INTERVAL_FACTOR
             yield d
 
@@ -321,8 +329,7 @@ class Producer(object):
         # Do we have a partitioner for this topic already?
         if topic not in self.partitioners:
             # No, create a new paritioner for topic, partitions
-            self.partitioners[topic] = \
-                self.partitioner_class(topic, partitions)
+            self.partitioners[topic] = self.partitioner_class(topic, partitions)
         # Lookup the next partition
         partition = self.partitioners[topic].partition(key, partitions)
         returnValue(partition)
@@ -384,12 +391,11 @@ class Producer(object):
             return
         # send the request
         d = self.client.send_produce_request(
-            payloads, acks=self.req_acks, timeout=self.ack_timeout,
-            fail_on_error=False)
+            payloads, acks=self.req_acks, timeout=self.ack_timeout, fail_on_error=False
+        )
         self._req_attempts += 1
         # add our handlers
-        d.addBoth(self._handle_send_response, payloadsByTopicPart,
-                  deferredsByTopicPart)
+        d.addBoth(self._handle_send_response, payloadsByTopicPart, deferredsByTopicPart)
         return d
 
     def _complete_batch_send(self, resp):
@@ -402,10 +408,10 @@ class Producer(object):
         self._batch_send_d = None
         self._req_attempts = 0
         self._retry_interval = self._init_retry_interval
-        if isinstance(resp, Failure) and not resp.check(tid_CancelledError,
-                                                        CancelledError):
+        if isinstance(resp, Failure) and not resp.check(tid_CancelledError, CancelledError):
             log.error(
-                "Failure detected in _complete_batch_send: %r", resp,
+                "Failure detected in _complete_batch_send: %r",
+                resp,
                 exc_info=(resp.type, resp.value, resp.getTracebackObject()),
             )
         return
@@ -415,9 +421,8 @@ class Producer(object):
         Since this can be called from the callback chain, we
         pass through our first (non-self) arg
         """
-        if (
-            (self.batch_every_n and self.batch_every_n <= self._waitingMsgCount) or
-            (self.batch_every_b and self.batch_every_b <= self._waitingByteCount)
+        if (self.batch_every_n and self.batch_every_n <= self._waitingMsgCount) or (
+            self.batch_every_b and self.batch_every_b <= self._waitingByteCount
         ):
             self._send_batch()
         return result
@@ -493,12 +498,10 @@ class Producer(object):
         # has been called and skip further processing for this request
         # Errback the deferred with whether or not we sent the request
         # to Kafka already
-        d.errback(
-            CancelledError(request_sent=(self._batch_send_d is not None)))
+        d.errback(CancelledError(request_sent=(self._batch_send_d is not None)))
         return
 
-    def _handle_send_response(self, result, payloadsByTopicPart,
-                              deferredsByTopicPart):
+    def _handle_send_response(self, result, payloadsByTopicPart, deferredsByTopicPart):
         """Handle the response from our client to our send_produce_request
 
         This is a bit complex. Failures can happen in a few ways:
@@ -540,12 +543,14 @@ class Producer(object):
             # we can determine which requests were successful, and which
             # failed for retry
             d = self.client.send_produce_request(
-                payloads, acks=self.req_acks, timeout=self.ack_timeout,
-                fail_on_error=False)
+                payloads,
+                acks=self.req_acks,
+                timeout=self.ack_timeout,
+                fail_on_error=False,
+            )
             self._req_attempts += 1
             # add our handlers
-            d.addBoth(self._handle_send_response, payloadsByTopicPart,
-                      deferredsByTopicPart)
+            d.addBoth(self._handle_send_response, payloadsByTopicPart, deferredsByTopicPart)
             return d
 
         def _cancel_retry(failure, dc):
@@ -575,9 +580,7 @@ class Producer(object):
                 return
             # Retries remain!  Schedule one...
             d = Deferred()
-            dc = self.client.reactor.callLater(
-                self._retry_interval, d.callback, [p for p, f in
-                                                   failed_payloads])
+            dc = self.client.reactor.callLater(self._retry_interval, d.callback, [p for p, f in failed_payloads])
             self._retry_interval *= self.RETRY_INTERVAL_FACTOR
             # Cancel the callLater when request is cancelled before it fires
             d.addErrback(_cancel_retry, dc)
@@ -588,8 +591,7 @@ class Producer(object):
             # metadata is out of date.
             reset_topics = set()
             for payload, e in failed_payloads:
-                if (isinstance(e, NotLeaderForPartitionError) or
-                        isinstance(e, UnknownTopicOrPartitionError)):
+                if isinstance(e, NotLeaderForPartitionError) or isinstance(e, UnknownTopicOrPartitionError):
                     reset_topics.add(payload.topic)
             if reset_topics:
                 self.client.reset_topic_metadata(*reset_topics)
@@ -625,14 +627,12 @@ class Producer(object):
                     # them all below. Set failure for errback to callers if we
                     # are all out of retries
                     failure, result = result, []  # no succesful results, retry
-                    failed_payloads = [(p, failure) for p in
-                                       payloadsByTopicPart.values()]
+                    failed_payloads = [(p, failure) for p in payloadsByTopicPart.values()]
                 else:
                     # Was the request cancelled?
                     if not result.check(tid_CancelledError):
                         # Uh Oh, programming error? Log it!
-                        log.error("Unexpected failure: %r in "
-                                  "_handle_send_response", result)
+                        log.error("Unexpected failure: %r in " "_handle_send_response", result)
                     # Cancelled, or programming error, we fail the requests
                     _deliver_result(deferredsByTopicPart.values(), result)
                     return
@@ -668,7 +668,7 @@ class Producer(object):
         return
 
     def _remove_from_outstanding(self, result, d):
-        """ Remove 'd' from the list of outstanding requests"""
+        """Remove 'd' from the list of outstanding requests"""
         self._outstanding.remove(d)
         return result
 

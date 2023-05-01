@@ -47,6 +47,7 @@ class KafkaHarness(object):
     :ivar zk: `_ZookeeperFixture` instance
     :ivar brokers: `list` of `_KafakBroker` instances
     """
+
     @classmethod
     def start(cls, replicas, **kw):
         """
@@ -59,12 +60,12 @@ class KafkaHarness(object):
             *replicas*, *zk_host*, *zk_port*, and *zk_chroot* are set
             automatically. *partitions* defaults to 8.
         """
-        kw['zk_chroot'] = chroot = random_string(10)
+        kw["zk_chroot"] = chroot = random_string(10)
         zk = _ZookeeperFixture.instance(chroot)
-        kw['replicas'] = replicas
-        kw.setdefault('partitions', 8)
-        kw['zk_host'] = zk.host
-        kw['zk_port'] = zk.port
+        kw["replicas"] = replicas
+        kw.setdefault("partitions", 8)
+        kw["zk_host"] = zk.host
+        kw["zk_port"] = zk.port
 
         brokers = []
         for broker_id in range(replicas):
@@ -94,30 +95,27 @@ class KafkaHarness(object):
 
 
 class _Fixture(object):
-    kafka_version = os.environ.get('KAFKA_VERSION', '0.9.0.1')
+    kafka_version = os.environ.get("KAFKA_VERSION", "0.9.0.1")
     project_root = os.environ.get(
-        'PROJECT_ROOT', os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../..")))
-    kafka_root = os.environ.get(
-        "KAFKA_ROOT", os.path.join(project_root, 'servers',
-                                   kafka_version, "kafka-bin"))
+        "PROJECT_ROOT",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")),
+    )
+    kafka_root = os.environ.get("KAFKA_ROOT", os.path.join(project_root, "servers", kafka_version, "kafka-bin"))
 
     @classmethod
     def test_resource(cls, filename):
-        return os.path.join(cls.project_root, "servers", cls.kafka_version,
-                            "resources", filename)
+        return os.path.join(cls.project_root, "servers", cls.kafka_version, "resources", filename)
 
     @classmethod
     def kafka_run_class_args(cls, *args):
-        result = [os.path.join(cls.kafka_root, 'bin', 'kafka-run-class.sh')]
+        result = [os.path.join(cls.kafka_root, "bin", "kafka-run-class.sh")]
         result.extend(args)
         return result
 
     @classmethod
     def kafka_run_class_env(cls):
         env = os.environ.copy()
-        env['KAFKA_LOG4J_OPTS'] = "-Dlog4j.configuration=file:{}".format(
-            cls.test_resource("log4j.properties"))
+        env["KAFKA_LOG4J_OPTS"] = "-Dlog4j.configuration=file:{}".format(cls.test_resource("log4j.properties"))
         return env
 
     @classmethod
@@ -148,7 +146,7 @@ class _ZookeeperFixture(_Fixture):
 
         self.tmp_dir = None
         self.child = None
-        self._log = logging.getLogger('fixtures.ZK')
+        self._log = logging.getLogger("fixtures.ZK")
 
     def __repr__(self):
         return "{}<{}:{}>".format(
@@ -174,7 +172,7 @@ class _ZookeeperFixture(_Fixture):
             host=self.host,
             port=self.port,
         )
-        with open(properties_file, 'w') as f:
+        with open(properties_file, "w") as f:
             f.write(properties)
         self._log.info("Running local instance with config:\n%s", properties)
 
@@ -182,27 +180,29 @@ class _ZookeeperFixture(_Fixture):
         args = self.kafka_run_class_args("org.apache.zookeeper.server.quorum.QuorumPeerMain", properties_file)
         env = self.kafka_run_class_env()
         start_re = re.compile(
-            "binding to port /{host}:|Starting server.*ZooKeeperServerMain"
-            .format(host=re.escape(self.host)),
+            "binding to port /{host}:|Starting server.*ZooKeeperServerMain".format(host=re.escape(self.host)),
         )
-        self._child = SpawnedService('zookeeper', self._log, args, env, start_re)
+        self._child = SpawnedService("zookeeper", self._log, args, env, start_re)
         self._child.start()
 
         self._log.debug("Creating ZooKeeper chroot node %r...", kafka_chroot)
         args = self.kafka_run_class_args(
             "org.apache.zookeeper.ZooKeeperMain",
-            "-server", "%s:%d" % (self.host, self.port),
+            "-server",
+            "%s:%d" % (self.host, self.port),
             "create",
             "/%s" % kafka_chroot,
             "afkak",
         )
         env = self.kafka_run_class_env()
-        proc = subprocess.Popen(args, env=env, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT)
+        proc = subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         stdout, _stderr = proc.communicate()
         if proc.returncode != 0:  # pragma: no cover
-            self._log.error("Failed to create Zookeeper chroot node. Process exited %d and output:\n%s",
-                            proc.returncode, stdout.decode('utf-8', 'replace'))
+            self._log.error(
+                "Failed to create Zookeeper chroot node. Process exited %d and output:\n%s",
+                proc.returncode,
+                stdout.decode("utf-8", "replace"),
+            )
             raise RuntimeError("Failed to create Zookeeper chroot node")
         self._log.debug("Done!")
 
@@ -215,10 +215,17 @@ class _ZookeeperFixture(_Fixture):
 
 
 class _KafkaFixture(_Fixture):
-
     @classmethod
-    def instance(cls, broker_id, zk_host, zk_port, zk_chroot, replicas,
-                 partitions, message_max_bytes=1000000):
+    def instance(
+        cls,
+        broker_id,
+        zk_host,
+        zk_port,
+        zk_chroot,
+        replicas,
+        partitions,
+        message_max_bytes=1000000,
+    ):
         if zk_chroot is None:
             zk_chroot = "afkak_" + str(uuid.uuid4()).replace("-", "_")
         if "KAFKA_URI" in os.environ:  # pragma: no cover
@@ -228,18 +235,34 @@ class _KafkaFixture(_Fixture):
         else:
             (host, port) = ("127.0.0.1", get_open_port())
             fixture = cls(
-                host=host, port=port, broker_id=broker_id, zk_host=zk_host,
-                zk_port=zk_port, zk_chroot=zk_chroot, replicas=replicas,
-                partitions=partitions, message_max_bytes=message_max_bytes,
+                host=host,
+                port=port,
+                broker_id=broker_id,
+                zk_host=zk_host,
+                zk_port=zk_port,
+                zk_chroot=zk_chroot,
+                replicas=replicas,
+                partitions=partitions,
+                message_max_bytes=message_max_bytes,
             )
             fixture.open()
         return fixture
 
-    def __init__(self, host, port, broker_id, zk_host, zk_port, zk_chroot,
-                 replicas, partitions, message_max_bytes):
+    def __init__(
+        self,
+        host,
+        port,
+        broker_id,
+        zk_host,
+        zk_port,
+        zk_chroot,
+        replicas,
+        partitions,
+        message_max_bytes,
+    ):
         self.host = host
         self.port = port
-        self._log = logging.getLogger('fixtures.K{}'.format(broker_id))
+        self._log = logging.getLogger("fixtures.K{}".format(broker_id))
 
         self.broker_id = broker_id
 
@@ -260,12 +283,12 @@ class _KafkaFixture(_Fixture):
         self.restartable = False  # Only restartable after stop() call
 
     def __repr__(self):
-        return '{}<node_id={} {}:{} {}>'.format(
+        return "{}<node_id={} {}:{} {}>".format(
             self.__class__.__name__,
             self.broker_id,
             self.host,
             self.port,
-            'running' if self.running else 'stopped',
+            "running" if self.running else "stopped",
         )
 
     def open(self):
@@ -305,7 +328,7 @@ class _KafkaFixture(_Fixture):
         """
         Configure Kafka child process
         """
-        name = 'kafka{}'.format(self.broker_id)
+        name = "kafka{}".format(self.broker_id)
         args = self.kafka_run_class_args("kafka.Kafka", self._properties_file)
         env = self.kafka_run_class_env()
         # Match a message like (0.9.0.1 and earlier):
@@ -315,13 +338,11 @@ class _KafkaFixture(_Fixture):
         # Or like this (1.1.1):
         #
         #     [2018-09-27 17:23:46,818] INFO [KafkaServer id=0] started (kafka.server.KafkaServer)
-        start_re = re.compile((
-            r"("
-            r"\[Kafka Server {broker_id}\], [Ss]tarted"
-            r"|"
-            r"\[KafkaServer id={broker_id}\] started"
-            r")"
-        ).format(broker_id=self.broker_id))
+        start_re = re.compile(
+            (
+                r"(" r"\[Kafka Server {broker_id}\], [Ss]tarted" r"|" r"\[KafkaServer id={broker_id}\] started" r")"
+            ).format(broker_id=self.broker_id)
+        )
         return SpawnedService(name, self._log, args, env, start_re)
 
     def close(self):
@@ -329,8 +350,7 @@ class _KafkaFixture(_Fixture):
             self._log.warning("Instance already stopped")
             return
 
-        self._log.info("Stopping... %s at %s",
-                       self.tmp_dir, datetime.utcnow().isoformat())
+        self._log.info("Stopping... %s at %s", self.tmp_dir, datetime.utcnow().isoformat())
         self.child.stop()
         self.child = None
         self._log.info("Done!")
@@ -348,8 +368,11 @@ class _KafkaFixture(_Fixture):
     def restart(self):
         """Start a new child SpawnedService with same settings and tmpdir"""
         if not self.restartable:  # pragma: no cover
-            self._log.error("*** Kafka [%s:%d]: Restart attempted when not stopped.",
-                            self.host, self.port)
+            self._log.error(
+                "*** Kafka [%s:%d]: Restart attempted when not stopped.",
+                self.host,
+                self.port,
+            )
             return
         self.child = self._make_child()
         self._log.debug("Starting...")

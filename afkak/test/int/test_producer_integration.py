@@ -18,27 +18,35 @@ import logging
 import time
 from unittest import skipUnless
 
-from twisted.internet.defer import inlineCallbacks
-from twisted.trial import unittest
-
 from afkak import (
-    CODEC_GZIP, CODEC_SNAPPY, HashedPartitioner, Producer,
-    RoundRobinPartitioner, create_message, create_message_set,
+    CODEC_GZIP,
+    CODEC_SNAPPY,
+    HashedPartitioner,
+    Producer,
+    RoundRobinPartitioner,
+    create_message,
+    create_message_set,
 )
 from afkak.codec import has_snappy
 from afkak.common import (
-    PRODUCER_ACK_ALL_REPLICAS, PRODUCER_ACK_LOCAL_WRITE,
-    PRODUCER_ACK_NOT_REQUIRED, FetchRequest, ProduceRequest, SendRequest,
+    PRODUCER_ACK_ALL_REPLICAS,
+    PRODUCER_ACK_LOCAL_WRITE,
+    PRODUCER_ACK_NOT_REQUIRED,
+    FetchRequest,
+    ProduceRequest,
+    SendRequest,
 )
 from afkak.test.testutil import async_delay, make_send_requests, random_string
 
 from .intutil import IntegrationMixin, kafka_versions
+from twisted.internet.defer import inlineCallbacks
+from twisted.trial import unittest
 
 log = logging.getLogger(__name__)
 
 
 class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
-    topic = 'produce_topic'
+    topic = "produce_topic"
     harness_kw = dict(replicas=1, partitions=2)
 
     ###########################################################################
@@ -68,16 +76,13 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset = yield self.current_offset(self.topic, 0)
 
         yield self.assert_produce_request(
-            [create_message(b"Test message %d" % i,
-                            key=b"Key:%d" % i) for i in range(100)],
+            [create_message(b"Test message %d" % i, key=b"Key:%d" % i) for i in range(100)],
             start_offset,
             100,
         )
         msgs = [b"Test message %d" % i for i in range(100)]
         keys = [b"Key:%d" % i for i in range(100)]
-        yield self.assert_fetch_offset(0, start_offset, msgs,
-                                       expected_keys=keys,
-                                       fetch_size=10240)
+        yield self.assert_fetch_offset(0, start_offset, msgs, expected_keys=keys, fetch_size=10240)
 
     @kafka_versions("all")
     @inlineCallbacks
@@ -91,8 +96,8 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset = yield self.current_offset(self.topic, 0)
 
         msg_set = create_message_set(
-            [SendRequest(self.topic, b"Key:%d" % i, [b"Test msg %d" % i], None)
-             for i in range(100)], CODEC_GZIP,
+            [SendRequest(self.topic, b"Key:%d" % i, [b"Test msg %d" % i], None) for i in range(100)],
+            CODEC_GZIP,
         )
         yield self.assert_produce_request(
             msg_set,
@@ -101,9 +106,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         )
         msgs = [b"Test msg %d" % i for i in range(100)]
         keys = [b"Key:%d" % i for i in range(100)]
-        yield self.assert_fetch_offset(0, start_offset, msgs,
-                                       expected_keys=keys,
-                                       fetch_size=10240)
+        yield self.assert_fetch_offset(0, start_offset, msgs, expected_keys=keys, fetch_size=10240)
 
     @kafka_versions("all")
     @inlineCallbacks
@@ -121,12 +124,8 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     def test_produce_many_gzip(self):
         start_offset = yield self.current_offset(self.topic, 0)
 
-        message1 = create_message_set(
-            make_send_requests(
-                [b"Gzipped 1 %d" % i for i in range(100)]), CODEC_GZIP)[0]
-        message2 = create_message_set(
-            make_send_requests(
-                [b"Gzipped 2 %d" % i for i in range(100)]), CODEC_GZIP)[0]
+        message1 = create_message_set(make_send_requests([b"Gzipped 1 %d" % i for i in range(100)]), CODEC_GZIP)[0]
+        message2 = create_message_set(make_send_requests([b"Gzipped 2 %d" % i for i in range(100)]), CODEC_GZIP)[0]
 
         yield self.assert_produce_request(
             [message1, message2],
@@ -140,12 +139,8 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     def test_produce_many_snappy(self):
         start_offset = yield self.current_offset(self.topic, 0)
 
-        message1 = create_message_set(
-            make_send_requests(
-                [b"Snappy 1 %d" % i for i in range(100)]), CODEC_SNAPPY)[0]
-        message2 = create_message_set(
-            make_send_requests(
-                [b"Snappy 2 %d" % i for i in range(100)]), CODEC_SNAPPY)[0]
+        message1 = create_message_set(make_send_requests([b"Snappy 1 %d" % i for i in range(100)]), CODEC_SNAPPY)[0]
+        message2 = create_message_set(make_send_requests([b"Snappy 2 %d" % i for i in range(100)]), CODEC_SNAPPY)[0]
         yield self.assert_produce_request(
             [message1, message2],
             start_offset,
@@ -157,7 +152,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     def test_produce_mixed(self):
         start_offset = yield self.current_offset(self.topic, 0)
 
-        msg_count = 1+100
+        msg_count = 1 + 100
         messages = [
             create_message(b"Just a plain message"),
             create_message_set(make_send_requests([b"Gzipped %d" % i for i in range(100)]), CODEC_GZIP)[0],
@@ -169,15 +164,16 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
             messages.append(
                 create_message_set(
                     make_send_requests([b"Snappy %d" % i for i in range(100)]),
-                    CODEC_SNAPPY)[0])
+                    CODEC_SNAPPY,
+                )[0]
+            )
 
         yield self.assert_produce_request(messages, start_offset, msg_count)
-        ptMsgs = [b'Just a plain message']
+        ptMsgs = [b"Just a plain message"]
         ptMsgs.extend([b"Gzipped %d" % i for i in range(100)])
         if has_snappy():
             ptMsgs.extend([b"Snappy %d" % i for i in range(100)])
-        yield self.assert_fetch_offset(0, start_offset, ptMsgs,
-                                       fetch_size=10240)
+        yield self.assert_fetch_offset(0, start_offset, ptMsgs, fetch_size=10240)
 
     @kafka_versions("all")
     @inlineCallbacks
@@ -185,15 +181,15 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset = yield self.current_offset(self.topic, 0)
 
         msgs = create_message_set(
-            make_send_requests(
-                [b"Gzipped batch 1, message %d" % i for i in range(5000)]),
-            CODEC_GZIP)
+            make_send_requests([b"Gzipped batch 1, message %d" % i for i in range(5000)]),
+            CODEC_GZIP,
+        )
         yield self.assert_produce_request(msgs, start_offset, 5000)
         msgs = create_message_set(
-            make_send_requests(
-                [b"Gzipped batch 2, message %d" % i for i in range(5000)]),
-            CODEC_GZIP)
-        yield self.assert_produce_request(msgs, start_offset+5000, 5000)
+            make_send_requests([b"Gzipped batch 2, message %d" % i for i in range(5000)]),
+            CODEC_GZIP,
+        )
+        yield self.assert_produce_request(msgs, start_offset + 5000, 5000)
 
     ###################################################################
     #   Producer Tests  - Server setup is 1 replica, 2 partitions     #
@@ -207,29 +203,24 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         producer = Producer(self.client)
 
         # Goes to first partition
-        resp = yield producer.send_messages(
-            self.topic, msgs=[self.msg("one"), self.msg("two")])
+        resp = yield producer.send_messages(self.topic, msgs=[self.msg("one"), self.msg("two")])
         self.assert_produce_response(resp, start_offset0)
 
         # Goes to the 2nd partition
-        resp = yield producer.send_messages(self.topic,
-                                            msgs=[self.msg("three")])
+        resp = yield producer.send_messages(self.topic, msgs=[self.msg("three")])
         self.assert_produce_response(resp, start_offset1)
 
         # fetch the messages back and make sure they are as expected
-        yield self.assert_fetch_offset(
-            0, start_offset0, [self.msg("one"), self.msg("two")])
-        yield self.assert_fetch_offset(
-            1, start_offset1, [self.msg("three")])
+        yield self.assert_fetch_offset(0, start_offset0, [self.msg("one"), self.msg("two")])
+        yield self.assert_fetch_offset(1, start_offset1, [self.msg("three")])
         # Goes back to the first partition because there's only two partitions
-        resp = yield producer.send_messages(
-            self.topic, msgs=[self.msg("four"), self.msg("five")])
-        self.assert_produce_response(resp, start_offset0+2)
+        resp = yield producer.send_messages(self.topic, msgs=[self.msg("four"), self.msg("five")])
+        self.assert_produce_response(resp, start_offset0 + 2)
         yield self.assert_fetch_offset(
-            0, start_offset0, [self.msg("one"),
-                               self.msg("two"),
-                               self.msg("four"),
-                               self.msg("five")])
+            0,
+            start_offset0,
+            [self.msg("one"), self.msg("two"), self.msg("four"), self.msg("five")],
+        )
 
         yield producer.stop()
 
@@ -239,26 +230,19 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset0 = yield self.current_offset(self.topic, 0)
         start_offset1 = yield self.current_offset(self.topic, 1)
 
-        producer = Producer(self.client,
-                            partitioner_class=RoundRobinPartitioner)
-        resp1 = yield producer.send_messages(
-            self.topic, b"key1", [self.msg("one")])
-        resp2 = yield producer.send_messages(
-            self.topic, b"key2", [self.msg("two")])
-        resp3 = yield producer.send_messages(
-            self.topic, b"key3", [self.msg("three")])
-        resp4 = yield producer.send_messages(
-            self.topic, b"key4", [self.msg("four")])
+        producer = Producer(self.client, partitioner_class=RoundRobinPartitioner)
+        resp1 = yield producer.send_messages(self.topic, b"key1", [self.msg("one")])
+        resp2 = yield producer.send_messages(self.topic, b"key2", [self.msg("two")])
+        resp3 = yield producer.send_messages(self.topic, b"key3", [self.msg("three")])
+        resp4 = yield producer.send_messages(self.topic, b"key4", [self.msg("four")])
 
-        self.assert_produce_response(resp1, start_offset0+0)
-        self.assert_produce_response(resp2, start_offset1+0)
-        self.assert_produce_response(resp3, start_offset0+1)
-        self.assert_produce_response(resp4, start_offset1+1)
+        self.assert_produce_response(resp1, start_offset0 + 0)
+        self.assert_produce_response(resp2, start_offset1 + 0)
+        self.assert_produce_response(resp3, start_offset0 + 1)
+        self.assert_produce_response(resp4, start_offset1 + 1)
 
-        yield self.assert_fetch_offset(
-            0, start_offset0, [self.msg("one"), self.msg("three")])
-        yield self.assert_fetch_offset(
-            1, start_offset1, [self.msg("two"), self.msg("four")])
+        yield self.assert_fetch_offset(0, start_offset0, [self.msg("one"), self.msg("three")])
+        yield self.assert_fetch_offset(1, start_offset1, [self.msg("two"), self.msg("four")])
 
         yield producer.stop()
 
@@ -267,18 +251,14 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     def test_producer_round_robin_partitioner_random_start(self):
         try:
             RoundRobinPartitioner.set_random_start(True)
-            producer = Producer(self.client,
-                                partitioner_class=RoundRobinPartitioner)
+            producer = Producer(self.client, partitioner_class=RoundRobinPartitioner)
             # Two partitions, so 1st and 3rd reqs should go to same part, but
             # 2nd should go to different. Other than that, without statistical
             # test, we can't say much... Partitioner tests should ensure that
             # we really aren't always starting on a non-random partition...
-            resp1 = yield producer.send_messages(
-                self.topic, msgs=[self.msg("one"), self.msg("two")])
-            resp2 = yield producer.send_messages(
-                self.topic, msgs=[self.msg("three")])
-            resp3 = yield producer.send_messages(
-                self.topic, msgs=[self.msg("four"), self.msg("five")])
+            resp1 = yield producer.send_messages(self.topic, msgs=[self.msg("one"), self.msg("two")])
+            resp2 = yield producer.send_messages(self.topic, msgs=[self.msg("three")])
+            resp3 = yield producer.send_messages(self.topic, msgs=[self.msg("four"), self.msg("five")])
 
             self.assertEqual(resp1.partition, resp3.partition)
             self.assertNotEqual(resp1.partition, resp2.partition)
@@ -293,35 +273,33 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset0 = yield self.current_offset(self.topic, 0)
         start_offset1 = yield self.current_offset(self.topic, 1)
 
-        producer = Producer(self.client,
-                            partitioner_class=HashedPartitioner)
+        producer = Producer(self.client, partitioner_class=HashedPartitioner)
 
-        resp1 = yield producer.send_messages(
-            self.topic, b'1', [self.msg("one")])
-        resp2 = yield producer.send_messages(
-            self.topic, b'2', [self.msg("two")])
-        resp3 = yield producer.send_messages(
-            self.topic, b'1', [self.msg("three")])
-        resp4 = yield producer.send_messages(
-            self.topic, b'1', [self.msg("four")])
-        resp5 = yield producer.send_messages(
-            self.topic, b'2', [self.msg("five")])
+        resp1 = yield producer.send_messages(self.topic, b"1", [self.msg("one")])
+        resp2 = yield producer.send_messages(self.topic, b"2", [self.msg("two")])
+        resp3 = yield producer.send_messages(self.topic, b"1", [self.msg("three")])
+        resp4 = yield producer.send_messages(self.topic, b"1", [self.msg("four")])
+        resp5 = yield producer.send_messages(self.topic, b"2", [self.msg("five")])
 
-        self.assert_produce_response(resp2, start_offset0+0)
-        self.assert_produce_response(resp5, start_offset0+1)
+        self.assert_produce_response(resp2, start_offset0 + 0)
+        self.assert_produce_response(resp5, start_offset0 + 1)
 
-        self.assert_produce_response(resp1, start_offset1+0)
-        self.assert_produce_response(resp3, start_offset1+1)
-        self.assert_produce_response(resp4, start_offset1+2)
+        self.assert_produce_response(resp1, start_offset1 + 0)
+        self.assert_produce_response(resp3, start_offset1 + 1)
+        self.assert_produce_response(resp4, start_offset1 + 2)
 
         yield self.assert_fetch_offset(
-            0, start_offset0, [
+            0,
+            start_offset0,
+            [
                 self.msg("two"),
                 self.msg("five"),
             ],
         )
         yield self.assert_fetch_offset(
-            1, start_offset1, [
+            1,
+            start_offset1,
+            [
                 self.msg("one"),
                 self.msg("three"),
                 self.msg("four"),
@@ -343,23 +321,27 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
 
         partitioner = HashedPartitioner(self.topic, [0, 1])
         producer = Producer(
-            self.client, codec=CODEC_GZIP, batch_send=True, batch_every_n=100,
-            batch_every_t=None, partitioner_class=HashedPartitioner)
+            self.client,
+            codec=CODEC_GZIP,
+            batch_send=True,
+            batch_every_n=100,
+            batch_every_t=None,
+            partitioner_class=HashedPartitioner,
+        )
 
         # Send ten groups of messages, each with a different key
         for i in range(10):
             msg_group = []
-            key = 'Key: {}'.format(i).encode()
+            key = "Key: {}".format(i).encode()
             part = partitioner.partition(key, [0, 1])
             for j in range(10):
-                msg = self.msg('Group:{} Msg:{}'.format(i, j))
+                msg = self.msg("Group:{} Msg:{}".format(i, j))
                 msg_group.append(msg)
                 msgs_by_partition[part].append(msg)
                 keys_by_partition[part].append(key)
-            request = producer.send_messages(
-                self.topic, key=key, msgs=msg_group)
+            request = producer.send_messages(self.topic, key=key, msgs=msg_group)
             requests.append(request)
-            yield async_delay(.5)  # Make the NoResult test have teeth...
+            yield async_delay(0.5)  # Make the NoResult test have teeth...
             if i < 9:
                 # This is to ensure we really are batching all the requests
                 self.assertNoResult(request)
@@ -367,8 +349,12 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         # Now ensure we can retrieve the right messages from each partition
         for part in [0, 1]:
             yield self.assert_fetch_offset(
-                part, offsets[part], msgs_by_partition[part],
-                keys_by_partition[part], fetch_size=20480)
+                part,
+                offsets[part],
+                msgs_by_partition[part],
+                keys_by_partition[part],
+                fetch_size=20480,
+            )
 
         yield producer.stop()
 
@@ -378,8 +364,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset0 = yield self.current_offset(self.topic, 0)
         yield self.current_offset(self.topic, 1)
 
-        producer = Producer(
-            self.client, req_acks=PRODUCER_ACK_NOT_REQUIRED)
+        producer = Producer(self.client, req_acks=PRODUCER_ACK_NOT_REQUIRED)
         resp = yield producer.send_messages(self.topic, msgs=[self.msg("one")])
         self.assertEqual(resp, None)
 
@@ -392,8 +377,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset0 = yield self.current_offset(self.topic, 0)
         yield self.current_offset(self.topic, 1)
 
-        producer = Producer(
-            self.client, req_acks=PRODUCER_ACK_LOCAL_WRITE)
+        producer = Producer(self.client, req_acks=PRODUCER_ACK_LOCAL_WRITE)
         resp = yield producer.send_messages(self.topic, msgs=[self.msg("one")])
 
         self.assert_produce_response(resp, start_offset0)
@@ -407,9 +391,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset0 = yield self.current_offset(self.topic, 0)
         start_offset1 = yield self.current_offset(self.topic, 1)
 
-        producer = Producer(
-            self.client,
-            req_acks=PRODUCER_ACK_ALL_REPLICAS)
+        producer = Producer(self.client, req_acks=PRODUCER_ACK_ALL_REPLICAS)
 
         resp = yield producer.send_messages(self.topic, msgs=[self.msg("one")])
         self.assert_produce_response(resp, start_offset0)
@@ -424,13 +406,24 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset0 = yield self.current_offset(self.topic, 0)
         start_offset1 = yield self.current_offset(self.topic, 1)
 
-        producer = Producer(self.client, batch_send=True, batch_every_n=10,
-                            batch_every_b=0, batch_every_t=0)
+        producer = Producer(
+            self.client,
+            batch_send=True,
+            batch_every_n=10,
+            batch_every_b=0,
+            batch_every_t=0,
+        )
         # Send 4 messages and do a fetch. Fetch should timeout, and send
         # deferred shouldn't have a result yet...
         send1D = producer.send_messages(
-            self.topic, msgs=[self.msg("one"), self.msg("two"),
-                              self.msg("three"), self.msg("four")])
+            self.topic,
+            msgs=[
+                self.msg("one"),
+                self.msg("two"),
+                self.msg("three"),
+                self.msg("four"),
+            ],
+        )
         # by default the assert_fetch_offset() waits for 0.5 secs on the server
         # side before returning no result. So, these two calls should take 1sec
         yield self.assert_fetch_offset(0, start_offset0, [])
@@ -439,9 +432,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         # response from server yet on having received/responded to the request
         self.assertNoResult(send1D)
         # Sending 3 more messages won't trigger the send either (7 total)
-        send2D = producer.send_messages(
-            self.topic, msgs=[self.msg("five"), self.msg("six"),
-                              self.msg("seven")])
+        send2D = producer.send_messages(self.topic, msgs=[self.msg("five"), self.msg("six"), self.msg("seven")])
         # make sure no messages on server...
         yield self.assert_fetch_offset(0, start_offset0, [])
         yield self.assert_fetch_offset(1, start_offset1, [])
@@ -449,21 +440,34 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         self.assertNoResult(send2D)
         # send final batch which will be on partition 0 again...
         send3D = producer.send_messages(
-            self.topic, msgs=[self.msg("eight"), self.msg("nine"),
-                              self.msg("ten"), self.msg("eleven")])
+            self.topic,
+            msgs=[
+                self.msg("eight"),
+                self.msg("nine"),
+                self.msg("ten"),
+                self.msg("eleven"),
+            ],
+        )
         # Now do a fetch, again waiting for up to 0.5 seconds for the response
         # All four messages sent in first batch (to partition 0, given default
         # R-R, start-at-zero partitioner), and 4 in 3rd batch
         yield self.assert_fetch_offset(
-            0, start_offset0, [self.msg("one"), self.msg("two"),
-                               self.msg("three"), self.msg("four"),
-                               self.msg("eight"), self.msg("nine"),
-                               self.msg("ten"), self.msg("eleven")],
-            fetch_size=2048)
+            0,
+            start_offset0,
+            [
+                self.msg("one"),
+                self.msg("two"),
+                self.msg("three"),
+                self.msg("four"),
+                self.msg("eight"),
+                self.msg("nine"),
+                self.msg("ten"),
+                self.msg("eleven"),
+            ],
+            fetch_size=2048,
+        )
         # Fetch from partition:1 should have all messages in 2nd batch
-        yield self.assert_fetch_offset(
-            1, start_offset1, [self.msg("five"), self.msg("six"),
-                               self.msg("seven")])
+        yield self.assert_fetch_offset(1, start_offset1, [self.msg("five"), self.msg("six"), self.msg("seven")])
         # make sure the deferreds fired with the proper result
         resp1 = self.successResultOf(send1D)
         resp2 = self.successResultOf(send2D)
@@ -480,13 +484,24 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset0 = yield self.current_offset(self.topic, 0)
         start_offset1 = yield self.current_offset(self.topic, 1)
 
-        producer = Producer(self.client, batch_send=True, batch_every_b=4096,
-                            batch_every_n=0, batch_every_t=0)
+        producer = Producer(
+            self.client,
+            batch_send=True,
+            batch_every_b=4096,
+            batch_every_n=0,
+            batch_every_t=0,
+        )
         # Send 4 messages and do a fetch. Fetch should timeout, and send
         # deferred shouldn't have a result yet...
         send1D = producer.send_messages(
-            self.topic, msgs=[self.msg("one"), self.msg("two"),
-                              self.msg("three"), self.msg("four")])
+            self.topic,
+            msgs=[
+                self.msg("one"),
+                self.msg("two"),
+                self.msg("three"),
+                self.msg("four"),
+            ],
+        )
         # by default the assert_fetch_offset() waits for 0.5 secs on the server
         # side before returning no result. So, these two calls should take 1sec
         yield self.assert_fetch_offset(0, start_offset0, [])
@@ -497,9 +512,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         # Sending 3 more messages should trigger the send, but we don't yield
         # here, so we shouldn't have a response immediately after, and so
         # send2D should still have no result.
-        send2D = producer.send_messages(
-            self.topic, msgs=[self.msg("five"), self.msg("six"),
-                              self.msg("seven")])
+        send2D = producer.send_messages(self.topic, msgs=[self.msg("five"), self.msg("six"), self.msg("seven")])
         # make sure no messages on server...
         yield self.assert_fetch_offset(0, start_offset0, [])
         yield self.assert_fetch_offset(1, start_offset1, [])
@@ -507,31 +520,52 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         self.assertNoResult(send2D)
         # send 3rd batch which will be on partition 0 again...
         send3D = producer.send_messages(
-            self.topic, msgs=[self.msg("eight"), self.msg("nine"),
-                              self.msg("ten"), self.msg("eleven")])
+            self.topic,
+            msgs=[
+                self.msg("eight"),
+                self.msg("nine"),
+                self.msg("ten"),
+                self.msg("eleven"),
+            ],
+        )
         # make sure no messages on server...
         yield self.assert_fetch_offset(0, start_offset0, [])
         yield self.assert_fetch_offset(1, start_offset1, [])
         # Still no result on send
         self.assertNoResult(send3D)
         # Finally, send a big message to trigger send
-        send4D = producer.send_messages(
-            self.topic, msgs=[self.msg("1234" * 1024)])
+        send4D = producer.send_messages(self.topic, msgs=[self.msg("1234" * 1024)])
         # Now do a fetch, again waiting for up to 0.5 seconds for the response
         # All four messages sent in first batch (to partition 0, given default
         # R-R, start-at-zero partitioner), and 4 in 3rd batch
         yield self.assert_fetch_offset(
-            0, start_offset0, [self.msg("one"), self.msg("two"),
-                               self.msg("three"), self.msg("four"),
-                               self.msg("eight"), self.msg("nine"),
-                               self.msg("ten"), self.msg("eleven")],
-            fetch_size=2048)
+            0,
+            start_offset0,
+            [
+                self.msg("one"),
+                self.msg("two"),
+                self.msg("three"),
+                self.msg("four"),
+                self.msg("eight"),
+                self.msg("nine"),
+                self.msg("ten"),
+                self.msg("eleven"),
+            ],
+            fetch_size=2048,
+        )
         # Fetch from partition:1 should have all messages in 2nd batch, as
         # send_messages() treats calls as groups and all/none are sent...
         yield self.assert_fetch_offset(
-            1, start_offset1, [self.msg("five"), self.msg("six"),
-                               self.msg("seven"), self.msg("1234" * 1024)],
-            fetch_size=5*1024)
+            1,
+            start_offset1,
+            [
+                self.msg("five"),
+                self.msg("six"),
+                self.msg("seven"),
+                self.msg("1234" * 1024),
+            ],
+            fetch_size=5 * 1024,
+        )
         # make sure the deferreds fired with the proper result
         resp1 = self.successResultOf(send1D)
         resp2 = self.successResultOf(send2D)
@@ -557,13 +591,18 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         batchtime = 5
 
         try:
-            producer = Producer(self.client, batch_send=True,
-                                batch_every_n=0, batch_every_t=batchtime)
+            producer = Producer(self.client, batch_send=True, batch_every_n=0, batch_every_t=batchtime)
             startTime = time.time()
             # Send 4 messages and do a fetch
             send1D = producer.send_messages(
-                self.topic, msgs=[self.msg("one"), self.msg("two"),
-                                  self.msg("three"), self.msg("four")])
+                self.topic,
+                msgs=[
+                    self.msg("one"),
+                    self.msg("two"),
+                    self.msg("three"),
+                    self.msg("four"),
+                ],
+            )
             # set assert_fetch_offset() to wait for 0.1 secs on the server-side
             # before returning no result. So, these calls should take 0.2sec
             yield self.assert_fetch_offset(0, start_offset0, [], max_wait=0.1)
@@ -573,9 +612,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
             self.assertNoResult(send1D)
             # Sending 3 more messages should NOT trigger the send, as less than
             # 1 sec. elapsed by here, so send2D should still have no result.
-            send2D = producer.send_messages(
-                self.topic, msgs=[self.msg("five"), self.msg("six"),
-                                  self.msg("seven")])
+            send2D = producer.send_messages(self.topic, msgs=[self.msg("five"), self.msg("six"), self.msg("seven")])
             # still no messages...
             yield self.assert_fetch_offset(0, start_offset0, [], max_wait=0.1)
             yield self.assert_fetch_offset(1, start_offset1, [], max_wait=0.1)
@@ -593,11 +630,11 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
             self.assert_produce_response(resp2, start_offset1)
             # Should be able to get messages now
             yield self.assert_fetch_offset(
-                0, start_offset0, [self.msg("one"), self.msg("two"),
-                                   self.msg("three"), self.msg("four")])
-            yield self.assert_fetch_offset(
-                1, start_offset1, [self.msg("five"), self.msg("six"),
-                                   self.msg("seven")])
+                0,
+                start_offset0,
+                [self.msg("one"), self.msg("two"), self.msg("three"), self.msg("four")],
+            )
+            yield self.assert_fetch_offset(1, start_offset1, [self.msg("five"), self.msg("six"), self.msg("seven")])
         finally:
             yield producer.stop()
 
@@ -608,8 +645,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         Test we can write to a non-extant topic (which will be auto-created)
         simply by calling producer.send_messages with a long enough timeout.
         """
-        test_topics = ["{}-{}-{}".format(
-            self.id().split('.')[-1], i, random_string(10)) for i in range(10)]
+        test_topics = ["{}-{}-{}".format(self.id().split(".")[-1], i, random_string(10)) for i in range(10)]
 
         producer = Producer(self.client, req_acks=PRODUCER_ACK_LOCAL_WRITE)
 
@@ -618,8 +654,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
             # Make sure the send went ok
             self.assert_produce_response(resp, 0)
             # Make sure we can get the message back
-            yield self.assert_fetch_offset(
-                0, 0, [self.msg(topic)], topic=topic)
+            yield self.assert_fetch_offset(0, 0, [self.msg(topic)], topic=topic)
 
         yield producer.stop()
 
@@ -631,7 +666,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
 
         # There should only be one response message from the server.
         # This will throw an exception if there's more than one.
-        resp, = yield self.client.send_produce_request([produce])
+        (resp,) = yield self.client.send_produce_request([produce])
         self.assert_produce_response(resp, initial_offset)
 
         resp2 = yield self.current_offset(self.topic, 0)
@@ -643,16 +678,24 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         self.assertEqual(resp.offset, initial_offset)
 
     @inlineCallbacks
-    def assert_fetch_offset(self, partition, start_offset,
-                            expected_messages, expected_keys=(),
-                            max_wait=0.5, fetch_size=1024, topic=None):
+    def assert_fetch_offset(
+        self,
+        partition,
+        start_offset,
+        expected_messages,
+        expected_keys=(),
+        max_wait=0.5,
+        fetch_size=1024,
+        topic=None,
+    ):
         # There should only be one response message from the server.
         # This will throw an exception if there's more than one.
         if topic is None:
             topic = self.topic
-        resp, = yield self.client.send_fetch_request(
+        (resp,) = yield self.client.send_fetch_request(
             [FetchRequest(topic, partition, start_offset, fetch_size)],
-            max_wait_time=int(max_wait * 1000))
+            max_wait_time=int(max_wait * 1000),
+        )
 
         self.assertEqual(resp.error, 0)
         self.assertEqual(resp.partition, partition)
@@ -663,5 +706,4 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         if expected_keys:
             keys = [x.message.key for x in resp_messages]
             self.assertEqual(keys, expected_keys)
-        self.assertEqual(
-            resp.highwaterMark, start_offset+len(expected_messages))
+        self.assertEqual(resp.highwaterMark, start_offset + len(expected_messages))

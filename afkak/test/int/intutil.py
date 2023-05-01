@@ -22,28 +22,33 @@ import time
 import uuid
 from pprint import pformat
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-
 from afkak import KafkaClient
 from afkak.common import (
-    OffsetRequest, PartitionUnavailableError, RetriableBrokerResponseError,
-    SendRequest, TopicAndPartition,
+    OffsetRequest,
+    PartitionUnavailableError,
+    RetriableBrokerResponseError,
+    SendRequest,
+    TopicAndPartition,
 )
 from afkak.test.int.fixtures import KafkaHarness
 from afkak.test.testutil import async_delay, random_string
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'IntegrationMixin',
-    'kafka_versions',
-    'stat',
+    "IntegrationMixin",
+    "kafka_versions",
+    "stat",
 ]
 
 
 def stat(key, value):
-    print("##teamcity[buildStatisticValue key='{}' value='{}']".format(
-        key, value), file=sys.stderr)
+    print(
+        "##teamcity[buildStatisticValue key='{}' value='{}']".format(key, value),
+        file=sys.stderr,
+    )
 
 
 def make_send_requests(msgs, topic=None, key=None):
@@ -54,21 +59,23 @@ def kafka_versions(*versions):
     def kafka_versions(func):
         @functools.wraps(func)
         def wrapper(self):
-            kafka_version = os.environ.get('KAFKA_VERSION')
+            kafka_version = os.environ.get("KAFKA_VERSION")
 
             if not kafka_version:
                 self.skipTest("no kafka version specified")  # pragma: no cover
-            elif 'all' not in versions and kafka_version not in versions:
+            elif "all" not in versions and kafka_version not in versions:
                 self.skipTest("unsupported kafka version")  # pragma: no cover
 
             return func(self)
+
         return wrapper
+
     return kafka_versions
 
 
 @inlineCallbacks
 def ensure_topic_creation(client, topic_name, fully_replicated=True, timeout=5):
-    '''
+    """
     With the default Kafka configuration, just querying for the metadata
     for a particular topic will auto-create that topic.
 
@@ -87,7 +94,7 @@ def ensure_topic_creation(client, topic_name, fully_replicated=True, timeout=5):
         If ``False``, only check that any metadata exists for the topic.
 
     :param timeout: Number of seconds to wait.
-    '''
+    """
     start_time = time.time()
     if fully_replicated:
         check_func = client.topic_fully_replicated
@@ -98,8 +105,13 @@ def ensure_topic_creation(client, topic_name, fully_replicated=True, timeout=5):
     def topic_info():
         if topic_name in client.topic_partitions:
             return "Topic {} exists. Partition metadata: {}".format(
-                topic_name, pformat([client.partition_meta[TopicAndPartition(topic_name, part)]
-                                     for part in client.topic_partitions[topic_name]]),
+                topic_name,
+                pformat(
+                    [
+                        client.partition_meta[TopicAndPartition(topic_name, part)]
+                        for part in client.topic_partitions[topic_name]
+                    ]
+                ),
             )
         else:
             return "No metadata for topic {} found.".format(topic_name)
@@ -107,13 +119,13 @@ def ensure_topic_creation(client, topic_name, fully_replicated=True, timeout=5):
     while not check_func(topic_name):
         yield async_delay(clock=client.reactor)
         if time.time() > start_time + timeout:
-            raise Exception((
-                "Timed out waiting topic {} creation after {} seconds. {}"
-            ).format(topic_name, timeout, topic_info()))
+            raise Exception(
+                ("Timed out waiting topic {} creation after {} seconds. {}").format(topic_name, timeout, topic_info())
+            )
         else:
-            log.debug('Still waiting topic creation: %s.', topic_info())
+            log.debug("Still waiting topic creation: %s.", topic_info())
         yield client.load_metadata_for_topics(topic_name)
-    log.info('%s', topic_info())
+    log.info("%s", topic_info())
 
 
 class IntegrationMixin(object):
@@ -148,12 +160,14 @@ class IntegrationMixin(object):
 
     :ivar reactor: Twisted reactor.
     """
+
     topic = None
     from twisted.internet import reactor
+
     client_kw = {}
 
-    if not os.environ.get('KAFKA_VERSION'):  # pragma: no cover
-        skip = 'KAFKA_VERSION is not set'
+    if not os.environ.get("KAFKA_VERSION"):  # pragma: no cover
+        skip = "KAFKA_VERSION is not set"
 
     @inlineCallbacks
     def setUp(self):
@@ -164,17 +178,18 @@ class IntegrationMixin(object):
 
         if not self.topic:
             self.topic = "%s-%s" % (
-                self.id()[self.id().rindex(".") + 1:], random_string(10))
+                self.id()[self.id().rindex(".") + 1 :],
+                random_string(10),
+            )
 
         self.client = KafkaClient(
             self.harness.bootstrap_hosts,
             clientId=self.__class__.__name__,
-            **self.client_kw
+            **self.client_kw,
         )
         self.addCleanup(self.client.close)
 
-        yield ensure_topic_creation(self.client, self.topic,
-                                    fully_replicated=True)
+        yield ensure_topic_creation(self.client, self.topic, fully_replicated=True)
 
         self._messages = {}
 
@@ -183,8 +198,7 @@ class IntegrationMixin(object):
 
     @inlineCallbacks
     def current_offset(self, topic, partition):
-        offsets, = yield self.client.send_offset_request(
-            [OffsetRequest(topic, partition, -1, 1)])
+        (offsets,) = yield self.client.send_offset_request([OffsetRequest(topic, partition, -1, 1)])
         returnValue(offsets.offsets[0])
 
     @inlineCallbacks
@@ -213,6 +227,6 @@ class IntegrationMixin(object):
 
     def msg(self, s):
         if s not in self._messages:
-            self._messages[s] = (u'%s-%s-%s' % (s, self.id(), uuid.uuid4())).encode('utf-8')
+            self._messages[s] = ("%s-%s-%s" % (s, self.id(), uuid.uuid4())).encode("utf-8")
 
         return self._messages[s]

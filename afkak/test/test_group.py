@@ -16,20 +16,31 @@ import logging
 import pprint
 from unittest.mock import Mock, patch
 
-from twisted.internet import defer, task
-from twisted.python.failure import Failure
-from twisted.trial import unittest
-
 from afkak import ConsumerGroup
 from afkak._group import Coordinator, _ConsumerProtocol, _NeedTopicPartitions
 from afkak.common import (
-    CoordinatorNotAvailable, IllegalGeneration, InconsistentGroupProtocol,
-    InvalidGroupId, NotCoordinator, RebalanceInProgress, RequestTimedOutError,
-    RestartError, RestopError, UnknownError, _HeartbeatResponse,
-    _JoinGroupRequestProtocol, _JoinGroupResponse, _JoinGroupResponseMember,
-    _SyncGroupRequestMember, _SyncGroupResponse,
+    CoordinatorNotAvailable,
+    IllegalGeneration,
+    InconsistentGroupProtocol,
+    InvalidGroupId,
+    NotCoordinator,
+    RebalanceInProgress,
+    RequestTimedOutError,
+    RestartError,
+    RestopError,
+    UnknownError,
+    _HeartbeatResponse,
+    _JoinGroupRequestProtocol,
+    _JoinGroupResponse,
+    _JoinGroupResponseMember,
+    _SyncGroupRequestMember,
+    _SyncGroupResponse,
 )
 from afkak.kafkacodec import KafkaCodec
+
+from twisted.internet import defer, task
+from twisted.python.failure import Failure
+from twisted.trial import unittest
 
 log = logging.getLogger(__name__)
 
@@ -43,18 +54,17 @@ def assert_delayed_calls(n, client):
     """
     calls = client.reactor.getDelayedCalls()
     calls_repr = pprint.pformat([vars(c) for c in calls])
-    log.debug('assert_delayed_calls(%d) found calls %s', n, calls_repr)
+    log.debug("assert_delayed_calls(%d) found calls %s", n, calls_repr)
     if len(calls) == n:
         return
-    raise AssertionError((
-        "Expected {expected} delayed calls at time {now},"
-        " but found {actual}:\n{calls}"
-    ).format(
-        expected=n,
-        actual=len(calls),
-        now=client.reactor.seconds(),
-        calls=calls_repr,
-    ))
+    raise AssertionError(
+        ("Expected {expected} delayed calls at time {now}," " but found {actual}:\n{calls}").format(
+            expected=n,
+            actual=len(calls),
+            now=client.reactor.seconds(),
+            calls=calls_repr,
+        )
+    )
 
 
 class Base(unittest.TestCase):
@@ -77,38 +87,44 @@ class Base(unittest.TestCase):
         return Coordinator(client, "group_id", ["topic1"])
 
     def join_response(self, member_id="m1", leader_id="m1"):
-        return defer.succeed(_JoinGroupResponse(
-            error=0,
-            generation_id="g1",
-            group_protocol="consumer",
-            member_id=member_id,
-            leader_id=leader_id,
-            members=[
-                _JoinGroupResponseMember(
-                    member_id,
-                    member_metadata=b'\x00\x00\x00\x00\x00\x01\x00\x06topic1\x00\x00\x00\x00',
-                ),
-            ],
-        ))
+        return defer.succeed(
+            _JoinGroupResponse(
+                error=0,
+                generation_id="g1",
+                group_protocol="consumer",
+                member_id=member_id,
+                leader_id=leader_id,
+                members=[
+                    _JoinGroupResponseMember(
+                        member_id,
+                        member_metadata=b"\x00\x00\x00\x00\x00\x01\x00\x06topic1\x00\x00\x00\x00",
+                    ),
+                ],
+            )
+        )
 
     def sync_response(self, member_id="m1", assignments=None):
         if assignments is None:
             assignments = {"topic1": [0, 1]}  # All partitions per the default topic_partitions
-        return defer.succeed(_SyncGroupResponse(
-            error=0,
-            member_assignment=KafkaCodec.encode_sync_group_member_assignment(
-                version=0,
-                assignments=assignments,
-                user_data=b'',
-            ),
-        ))
+        return defer.succeed(
+            _SyncGroupResponse(
+                error=0,
+                member_assignment=KafkaCodec.encode_sync_group_member_assignment(
+                    version=0,
+                    assignments=assignments,
+                    user_data=b"",
+                ),
+            )
+        )
 
 
 class TestCoordinator(Base):
     def test_send_join_group_request_success(self):
-        client = self.mock_client([
-            self.join_response(),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(),
+            ]
+        )
         coord = self.make_coordinator(client)
         de = coord.send_join_group_request()
         self.successResultOf(de)
@@ -116,9 +132,11 @@ class TestCoordinator(Base):
         self.assertEqual(coord.leader_id, "m1")
 
     def test_send_join_group_request_failure(self):
-        client = self.mock_client([
-            defer.fail(RebalanceInProgress()),
-        ])
+        client = self.mock_client(
+            [
+                defer.fail(RebalanceInProgress()),
+            ]
+        )
         coord = self.make_coordinator(client)
         de = coord.send_join_group_request()
         self.successResultOf(de)
@@ -128,17 +146,22 @@ class TestCoordinator(Base):
         self.assertIn("rejoin_needed", repr(coord))
 
     def test_send_sync_group_request_success(self):
-        client = self.mock_client([
-            self.join_response(), self.sync_response(),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(),
+                self.sync_response(),
+            ]
+        )
         coord = self.make_coordinator(client)
         de = coord.send_sync_group_request([])
         self.successResultOf(de)
 
     def test_send_sync_group_request_failure(self):
-        client = self.mock_client([
-            defer.fail(RebalanceInProgress()),
-        ])
+        client = self.mock_client(
+            [
+                defer.fail(RebalanceInProgress()),
+            ]
+        )
         coord = self.make_coordinator(client)
         de = coord.send_sync_group_request([])
         self.successResultOf(de)
@@ -146,7 +169,7 @@ class TestCoordinator(Base):
 
     def test_join_no_broker(self):
         """
-            fail to retrieve the coordinator broker and retry
+        fail to retrieve the coordinator broker and retry
         """
         client = self.mock_client([])
         coord = self.make_coordinator(client)
@@ -160,10 +183,12 @@ class TestCoordinator(Base):
         """
         Successfully join, assign as leader, and sync
         """
-        client = self.mock_client([
-            self.join_response(),
-            self.sync_response(),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(),
+                self.sync_response(),
+            ]
+        )
         coord = self.make_coordinator(client)
         de = coord.join_and_sync()
         self.successResultOf(de)
@@ -174,25 +199,29 @@ class TestCoordinator(Base):
 
     def test_join_sync_follower(self):
         """
-            Successfully join and sync as follower
+        Successfully join and sync as follower
         """
-        client = self.mock_client([
-            self.join_response(leader_id="m2"),
-            self.sync_response(),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(leader_id="m2"),
+                self.sync_response(),
+            ]
+        )
         coord = self.make_coordinator(client)
         de = coord.join_and_sync()
         self.successResultOf(de)
 
     def test_join_error(self):
         """
-            Get an error when joining and retry
+        Get an error when joining and retry
         """
-        client = self.mock_client([
-            defer.fail(RebalanceInProgress()),
-            self.join_response(),
-            self.sync_response(),
-        ])
+        client = self.mock_client(
+            [
+                defer.fail(RebalanceInProgress()),
+                self.join_response(),
+                self.sync_response(),
+            ]
+        )
         coord = self.make_coordinator(client)
         de = coord.join_and_sync()
         self.successResultOf(de)
@@ -204,14 +233,16 @@ class TestCoordinator(Base):
 
     def test_sync_error(self):
         """
-            Get an error when syncing and retry
+        Get an error when syncing and retry
         """
-        client = self.mock_client([
-            self.join_response(),
-            defer.fail(RebalanceInProgress()),
-            self.join_response(),
-            self.sync_response(),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(),
+                defer.fail(RebalanceInProgress()),
+                self.join_response(),
+                self.sync_response(),
+            ]
+        )
         coord = self.make_coordinator(client)
         de = coord.join_and_sync()
         self.successResultOf(de)
@@ -223,11 +254,13 @@ class TestCoordinator(Base):
 
     def test_join_fatal_error(self):
         """
-            Get an unexpected (non-kafka) error when joining and propagate it
+        Get an unexpected (non-kafka) error when joining and propagate it
         """
-        client = self.mock_client([
-            defer.fail(AttributeError()),
-        ])
+        client = self.mock_client(
+            [
+                defer.fail(AttributeError()),
+            ]
+        )
         coord = self.make_coordinator(client)
         start_d = coord._start_d = defer.Deferred()
         de = coord.join_and_sync()
@@ -236,7 +269,7 @@ class TestCoordinator(Base):
 
     def test_join_not_needed(self):
         """
-            call join_and_sync when not needed
+        call join_and_sync when not needed
         """
         client = self.mock_client([])
         coord = self.make_coordinator(client)
@@ -251,7 +284,7 @@ class TestCoordinator(Base):
 
     def test_join_fatal_exception(self):
         """
-            have an exception come out of _join_and_sync
+        have an exception come out of _join_and_sync
         """
         client = self.mock_client([])
         coord = self.make_coordinator(client)
@@ -263,16 +296,18 @@ class TestCoordinator(Base):
 
     def test_heartbeat_resync(self):
         """
-            run successful heartbeats, get a resync message, and schedule resync
+        run successful heartbeats, get a resync message, and schedule resync
         """
-        client = self.mock_client([
-            self.join_response(),
-            self.sync_response(),
-            defer.succeed(_HeartbeatResponse(error=0)),
-            defer.fail(RebalanceInProgress()),
-            self.join_response(),
-            self.sync_response(),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(),
+                self.sync_response(),
+                defer.succeed(_HeartbeatResponse(error=0)),
+                defer.fail(RebalanceInProgress()),
+                self.join_response(),
+                self.sync_response(),
+            ]
+        )
         coord = self.make_coordinator(client)
         self.successResultOf(coord.join_and_sync())
         self.assertEqual(coord._rejoin_needed, False)
@@ -300,13 +335,15 @@ class TestCoordinator(Base):
 
     def test_heartbeat_coordinator_lost(self):
         """
-            run a heartbeat that indicates the coordinator has changed
+        run a heartbeat that indicates the coordinator has changed
         """
-        client = self.mock_client([
-            self.join_response(),
-            self.sync_response(),
-            defer.fail(NotCoordinator()),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(),
+                self.sync_response(),
+                defer.fail(NotCoordinator()),
+            ]
+        )
         coord = self.make_coordinator(client)
         self.successResultOf(coord.join_and_sync())
 
@@ -321,13 +358,15 @@ class TestCoordinator(Base):
 
     def test_heartbeat_in_progress(self):
         """
-            get a heartbeat timer tick while a request is already in progress
+        get a heartbeat timer tick while a request is already in progress
         """
-        client = self.mock_client([
-            self.join_response(),
-            self.sync_response(),
-            defer.succeed(_HeartbeatResponse(error=0)),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(),
+                self.sync_response(),
+                defer.succeed(_HeartbeatResponse(error=0)),
+            ]
+        )
         coord = self.make_coordinator(client)
         self.successResultOf(coord.join_and_sync())
         self.assertEqual(coord._rejoin_needed, False)
@@ -348,11 +387,13 @@ class TestCoordinator(Base):
 
     def test_leave(self):
         """
-            send a leavegroup message
+        send a leavegroup message
         """
-        client = self.mock_client([
-            defer.succeed(Mock(error_code=0)),
-        ])
+        client = self.mock_client(
+            [
+                defer.succeed(Mock(error_code=0)),
+            ]
+        )
         coord = self.make_coordinator(client)
         coord.coordinator_broker = Mock()
         coord.member_id = "m1"
@@ -363,9 +404,12 @@ class TestCoordinator(Base):
         self.assertIsNone(coord.generation_id)
 
     def test_start_stop(self):
-        client = self.mock_client([
-            self.join_response(), self.sync_response(),
-        ])
+        client = self.mock_client(
+            [
+                self.join_response(),
+                self.sync_response(),
+            ]
+        )
         coord = self.make_coordinator(client)
 
         start_d = coord.start()
@@ -403,9 +447,11 @@ class TestCoordinator(Base):
         """
         retrieve a coordinator
         """
-        client = self.mock_client([
-            defer.succeed(Mock(error_code=0)),
-        ])
+        client = self.mock_client(
+            [
+                defer.succeed(Mock(error_code=0)),
+            ]
+        )
         coord = self.make_coordinator(client)
         client._get_coordinator_for_group.return_value = defer.succeed(None)
         client._get_brokerclient.return_value = None
@@ -424,12 +470,13 @@ class TestCoordinator(Base):
         """
         fail to retrieve a coordinator and retry
         """
-        client = self.mock_client([
-            defer.succeed(Mock(error_code=0)),
-        ])
+        client = self.mock_client(
+            [
+                defer.succeed(Mock(error_code=0)),
+            ]
+        )
         coord = self.make_coordinator(client)
-        client._get_coordinator_for_group.return_value = defer.fail(
-            RequestTimedOutError())
+        client._get_coordinator_for_group.return_value = defer.fail(RequestTimedOutError())
         client._get_brokerclient.return_value = None
         de = coord.get_coordinator_broker()
         self.successResultOf(de)
@@ -504,6 +551,7 @@ class ConsumerProtocolTests(unittest.SynchronousTestCase):
     """
     Test `afkak._group._ConsumerProtocol`
     """
+
     def run_protocol(self, topic_partitions, member_subscriptions):
         """
         Run a single round of the group assignment protocol.
@@ -522,10 +570,7 @@ class ConsumerProtocolTests(unittest.SynchronousTestCase):
         """
         proto = _ConsumerProtocol()
         # Phase 1: Join group. All members join the group.
-        joins = {
-            member_id: proto.join_group_protocols(topics)[0]
-            for member_id, topics in member_subscriptions.items()
-        }
+        joins = {member_id: proto.join_group_protocols(topics)[0] for member_id, topics in member_subscriptions.items()}
         # Phase 2: Sync group. Leader generates assignments.
         sync_assignments = proto.generate_assignments(
             members=[
@@ -543,11 +588,13 @@ class ConsumerProtocolTests(unittest.SynchronousTestCase):
     def test_join_group_protocols(self):
         proto = _ConsumerProtocol()
         self.assertEqual(
-            proto.join_group_protocols(['topic1']),
-            [_JoinGroupRequestProtocol(
-                "consumer",
-                b'\x00\x00\x00\x00\x00\x01\x00\x06topic1\x00\x00\x00\x00',
-            )],
+            proto.join_group_protocols(["topic1"]),
+            [
+                _JoinGroupRequestProtocol(
+                    "consumer",
+                    b"\x00\x00\x00\x00\x00\x01\x00\x06topic1\x00\x00\x00\x00",
+                )
+            ],
         )
 
     def test_single_member(self):
@@ -557,10 +604,10 @@ class ConsumerProtocolTests(unittest.SynchronousTestCase):
         """
         proto = _ConsumerProtocol()
 
-        [join_req] = proto.join_group_protocols(['topic1'])
+        [join_req] = proto.join_group_protocols(["topic1"])
         [sync_assign] = proto.generate_assignments(
-            members=[_SyncGroupRequestMember('member_id', join_req.protocol_metadata)],
-            topic_partitions={'topic1': [0, 1, 2, 3]},
+            members=[_SyncGroupRequestMember("member_id", join_req.protocol_metadata)],
+            topic_partitions={"topic1": [0, 1, 2, 3]},
         )
         assignment = proto.decode_assignment(sync_assign.member_metadata)
 
@@ -572,18 +619,21 @@ class ConsumerProtocolTests(unittest.SynchronousTestCase):
         fashion.
         """
         assignments = self.run_protocol(
-            topic_partitions={'topic2': [0, 1, 2, 3, 4, 5]},
+            topic_partitions={"topic2": [0, 1, 2, 3, 4, 5]},
             member_subscriptions={
-                'member1': ['topic2'],
-                'member2': ['topic2'],
-                'member3': ['topic2'],
+                "member1": ["topic2"],
+                "member2": ["topic2"],
+                "member3": ["topic2"],
             },
         )
-        self.assertEqual({
-            'member1': {'topic2': (0, 3)},
-            'member2': {'topic2': (1, 4)},
-            'member3': {'topic2': (2, 5)},
-        }, assignments)
+        self.assertEqual(
+            {
+                "member1": {"topic2": (0, 3)},
+                "member2": {"topic2": (1, 4)},
+                "member3": {"topic2": (2, 5)},
+            },
+            assignments,
+        )
 
     def test_roundrobin_normal(self):
         assignments = self.run_protocol(
@@ -594,11 +644,14 @@ class ConsumerProtocolTests(unittest.SynchronousTestCase):
                 "m3": ["topic1"],
             },
         )
-        self.assertEqual({
-            "m1": {"topic1": (0, 3)},
-            "m2": {"topic1": (1, 4)},
-            "m3": {"topic1": (2,)},
-        }, assignments)
+        self.assertEqual(
+            {
+                "m1": {"topic1": (0, 3)},
+                "m2": {"topic1": (1, 4)},
+                "m3": {"topic1": (2,)},
+            },
+            assignments,
+        )
 
     def test_roundrobin_no_topic(self):
         """
@@ -629,10 +682,13 @@ class ConsumerProtocolTests(unittest.SynchronousTestCase):
                 "m2": ["topic1"],
             },
         )
-        self.assertEqual(assignments, {
-            "m1": {"topic1": (0,)},
-            "m2": {},
-        })
+        self.assertEqual(
+            assignments,
+            {
+                "m1": {"topic1": (0,)},
+                "m2": {},
+            },
+        )
 
     def test_roundrobin_two_topic(self):
         """
@@ -646,10 +702,13 @@ class ConsumerProtocolTests(unittest.SynchronousTestCase):
                 "m2": ["topic2"],
             },
         )
-        self.assertEqual(assignments, {
-            "m1": {"topic1": (0,)},
-            "m2": {"topic2": (0, 1)},
-        })
+        self.assertEqual(
+            assignments,
+            {
+                "m1": {"topic1": (0,)},
+                "m2": {"topic2": (0, 1)},
+            },
+        )
 
 
 class TestConsumerGroup(Base):
@@ -667,7 +726,7 @@ class TestConsumerGroup(Base):
 
     def test_start_stop(self):
         """
-            start a consumergroup, join, and start consumers
+        start a consumergroup, join, and start consumers
         """
         client = self.mock_client([])
         processor = Mock()
@@ -681,7 +740,7 @@ class TestConsumerGroup(Base):
 
     def test_start_leave(self):
         """
-            start a consumergroup, join, start consumers, then get kicked out
+        start a consumergroup, join, start consumers, then get kicked out
         """
         client = self.mock_client([])
         processor = Mock()
@@ -695,13 +754,13 @@ class TestConsumerGroup(Base):
 
     def test_shutdown_error(self):
         """
-            get errors while shutting down consumers
+        get errors while shutting down consumers
         """
         client = self.mock_client([])
         processor = Mock()
         group = ConsumerGroup(client, "group_id", "topic1", processor)
         group.start()
-        with patch('afkak._group.Consumer', side_effect=[Mock(), Mock()]):
+        with patch("afkak._group.Consumer", side_effect=[Mock(), Mock()]):
             group.on_join_complete({"topic1": [1, 2]})
             consumer = group.consumers["topic1"][0]
             consumer._start_d = defer.Deferred()
@@ -720,13 +779,13 @@ class TestConsumerGroup(Base):
 
     def test_stop_error(self):
         """
-            get errors while stopping consumers
+        get errors while stopping consumers
         """
         client = self.mock_client([])
         processor = Mock()
         group = ConsumerGroup(client, "group_id", "topic1", processor)
         group.start()
-        with patch('afkak._group.Consumer'):
+        with patch("afkak._group.Consumer"):
             group.on_join_complete({"topic1": [1]})
             consumer = group.consumers["topic1"][0]
             consumer.stop.side_effect = KeyError()
@@ -734,14 +793,14 @@ class TestConsumerGroup(Base):
 
     def test_consumer_error(self):
         """
-            get an unexpected stop error from a consumer
+        get an unexpected stop error from a consumer
         """
         client = self.mock_client([])
         processor = Mock()
         group = ConsumerGroup(client, "group_id", "topic1", processor)
         start_d = group.start()
         self.assertNoResult(start_d)
-        with patch('afkak._group.Consumer') as mock_consumer:
+        with patch("afkak._group.Consumer") as mock_consumer:
             mock_consumer.return_value.start.return_value = d = defer.Deferred()
             group.on_join_complete({"topic1": [1]})
             self.assertEqual(mock_consumer.return_value.start.called, True)
@@ -751,15 +810,15 @@ class TestConsumerGroup(Base):
 
     def test_consumer_cancel_during_shutdown(self):
         """
-            get an unexpected CancelledError on the start() deferred
-            while shutting down a consumer becasue our heartbeat timed out
+        get an unexpected CancelledError on the start() deferred
+        while shutting down a consumer becasue our heartbeat timed out
 
         """
         client = self.mock_client([])
         processor = Mock()
         group = ConsumerGroup(client, "group_id", "topic1", processor)
         start_d = group.start()
-        with patch('afkak._group.Consumer') as mock_consumer:
+        with patch("afkak._group.Consumer") as mock_consumer:
             consumer_instance = mock_consumer.return_value
             consumer_start_d = defer.Deferred()
             consumer_instance.start.return_value = consumer_start_d
@@ -783,7 +842,7 @@ class TestConsumerGroup(Base):
         group = ConsumerGroup(client, "group_id", "topic1", processor)
         start_d = group.start()
         group.on_group_leave = Mock()
-        with patch('afkak._group.Consumer') as mock_consumer:
+        with patch("afkak._group.Consumer") as mock_consumer:
             mock_consumer.return_value.start.return_value = d = defer.Deferred()
             group.on_join_complete({"topic1": [1]})
             self.assertEqual(mock_consumer.return_value.start.called, True)

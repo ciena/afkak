@@ -25,12 +25,12 @@ from twisted.protocols.basic import Int32StringReceiver
 Twisted protocols that understand Kafka message framing
 """
 
-log = logging.getLogger('afkak.protocol')
+log = logging.getLogger("afkak.protocol")
 log.addHandler(logging.NullHandler())
 
 
 class _BaseKafkaProtocol(Int32StringReceiver):
-    MAX_LENGTH = 2 ** 31 - 1  # Max a signed Int32 can represent
+    MAX_LENGTH = 2**31 - 1  # Max a signed Int32 can represent
 
 
 class KafkaProtocol(_BaseKafkaProtocol):
@@ -40,6 +40,7 @@ class KafkaProtocol(_BaseKafkaProtocol):
     method with the string received by stringReceived() and
     to cleanup the factory reference when the connection is lost
     """
+
     factory = None
 
     def stringReceived(self, string):
@@ -50,9 +51,12 @@ class KafkaProtocol(_BaseKafkaProtocol):
         self.factory = None
 
     def lengthLimitExceeded(self, length):
-        log.error("Broker at %s sent a %d byte message, exceeding the size limit of %d. "
-                  "Terminating connection.", self.transport.getPeer(), length,
-                  self.MAX_LENGTH)
+        log.error(
+            "Broker at %s sent a %d byte message, exceeding the size limit of %d. " "Terminating connection.",
+            self.transport.getPeer(),
+            length,
+            self.MAX_LENGTH,
+        )
         self.transport.loseConnection()
 
 
@@ -67,6 +71,7 @@ class KafkaBootstrapProtocol(_BaseKafkaProtocol):
     :ivar dict _pending:
         Map of correlation ID to Deferred.
     """
+
     _log = Logger()
 
     def connectionMade(self):
@@ -81,10 +86,11 @@ class KafkaBootstrapProtocol(_BaseKafkaProtocol):
         try:
             d = self._pending.pop(correlation_id)
         except KeyError:
-            self._log.warn((
-                "Response has unknown correlation ID {correlation_id!r}."
-                " Dropping connection to {peer}."
-            ), correlation_id=correlation_id, peer=self.transport.getPeer())
+            self._log.warn(
+                ("Response has unknown correlation ID {correlation_id!r}." " Dropping connection to {peer}."),
+                correlation_id=correlation_id,
+                peer=self.transport.getPeer(),
+            )
             self.transport.loseConnection()
         else:
             d.callback(response)
@@ -101,7 +107,9 @@ class KafkaBootstrapProtocol(_BaseKafkaProtocol):
     def lengthLimitExceeded(self, length):
         self._log.error(
             "Broker at {peer} sent a {length:,d} byte message, exceeding the size limit of {max_length:,d}.",
-            peer=self.transport.getPeer(), length=length, max_length=self.MAX_LENGTH,
+            peer=self.transport.getPeer(),
+            length=length,
+            max_length=self.MAX_LENGTH,
         )
         self.transport.loseConnection()
 

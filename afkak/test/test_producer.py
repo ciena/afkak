@@ -18,23 +18,30 @@ import logging
 import uuid
 from unittest.mock import ANY, Mock, call, patch
 
+from .. import producer as aProducer
+from ..common import (
+    PRODUCER_ACK_NOT_REQUIRED,
+    BrokerNotAvailableError,
+    CancelledError,
+    FailedPayloadsError,
+    LeaderNotAvailableError,
+    NoResponseError,
+    NotLeaderForPartitionError,
+    OffsetOutOfRangeError,
+    ProduceRequest,
+    ProduceResponse,
+    UnknownTopicOrPartitionError,
+    UnsupportedCodecError,
+)
+from ..kafkacodec import create_message_set
+from ..producer import Producer
+from .testutil import make_send_requests, random_string
 from twisted.internet.defer import CancelledError as tid_CancelledError
 from twisted.internet.defer import Deferred, fail, succeed
 from twisted.internet.task import LoopingCall
 from twisted.python.failure import Failure
 from twisted.test.proto_helpers import MemoryReactorClock
 from twisted.trial import unittest
-
-from .. import producer as aProducer
-from ..common import (
-    PRODUCER_ACK_NOT_REQUIRED, BrokerNotAvailableError, CancelledError,
-    FailedPayloadsError, LeaderNotAvailableError, NoResponseError,
-    NotLeaderForPartitionError, OffsetOutOfRangeError, ProduceRequest,
-    ProduceResponse, UnknownTopicOrPartitionError, UnsupportedCodecError,
-)
-from ..kafkacodec import create_message_set
-from ..producer import Producer
-from .testutil import make_send_requests, random_string
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +53,7 @@ class ProducerSendMessagesValidationTests(unittest.SynchronousTestCase):
 
     :ivar producer: `Producer` with default arguments.
     """
+
     def setUp(self):
         client = Mock(reactor=MemoryReactorClock())
         self.producer = Producer(client)
@@ -55,36 +63,36 @@ class ProducerSendMessagesValidationTests(unittest.SynchronousTestCase):
         """
         `TypeError` results when the *topic* argument is not text.
         """
-        self.failureResultOf(self.producer.send_messages(1234, msgs=[b'']), TypeError)
+        self.failureResultOf(self.producer.send_messages(1234, msgs=[b""]), TypeError)
 
     def test_topic_bytes(self):
         """
         `TypeError` results when the *topic* argument is a `bytes`.
         """
-        self.failureResultOf(self.producer.send_messages(b'topic', msgs=[b'']), TypeError)
+        self.failureResultOf(self.producer.send_messages(b"topic", msgs=[b""]), TypeError)
 
     def test_empty_messages(self):
         """
         `ValueError` results when the *msgs* argument is not passed or is
         empty.
         """
-        self.failureResultOf(self.producer.send_messages('topic'), ValueError)
-        self.failureResultOf(self.producer.send_messages('topic', msgs=[]), ValueError)
+        self.failureResultOf(self.producer.send_messages("topic"), ValueError)
+        self.failureResultOf(self.producer.send_messages("topic", msgs=[]), ValueError)
 
     def test_message_type(self):
         """
         `TypeError` results when members of the *msgs* sequence are not
         `bytes` or ``None``.
         """
-        self.failureResultOf(self.producer.send_messages('topic', msgs=[1, 2, 3]), TypeError)
-        self.failureResultOf(self.producer.send_messages('topic', msgs=[u'asdf']), TypeError)
+        self.failureResultOf(self.producer.send_messages("topic", msgs=[1, 2, 3]), TypeError)
+        self.failureResultOf(self.producer.send_messages("topic", msgs=["asdf"]), TypeError)
 
     def test_none_message(self):
         """
         A message may be ``None``. This doesn't make much sense unless there is
         also a key.
         """
-        d = self.producer.send_messages('topic', key=b'key', msgs=[None])
+        d = self.producer.send_messages("topic", key=b"key", msgs=[None])
         d.addErrback(lambda f: None)  # Handle the cancellation failure from producer.stop().
 
         self.assertNoResult(d)
@@ -93,7 +101,7 @@ class ProducerSendMessagesValidationTests(unittest.SynchronousTestCase):
         """
         The key must not be unicode, but bytes.
         """
-        self.failureResultOf(self.producer.send_messages('topic', key=u'key', msgs=[b'msg']), TypeError)
+        self.failureResultOf(self.producer.send_messages("topic", key="key", msgs=[b"msg"]), TypeError)
 
 
 class TestAfkakProducer(unittest.TestCase):
@@ -105,10 +113,10 @@ class TestAfkakProducer(unittest.TestCase):
 
     def msg(self, s):
         if s not in self._messages:
-            self._messages[s] = b'%s-%s-%s' % (
-                str(s).encode('utf-8'),
-                self.id().encode('ascii'),
-                str(uuid.uuid4()).encode('ascii'),
+            self._messages[s] = b"%s-%s-%s" % (
+                str(s).encode("utf-8"),
+                self.id().encode("ascii"),
+                str(uuid.uuid4()).encode("ascii"),
             )
         return self._messages[s]
 
@@ -116,7 +124,7 @@ class TestAfkakProducer(unittest.TestCase):
         super(TestAfkakProducer, self).setUp()
         if not self.topic:
             self.topic = "{}-{}".format(
-                self.id()[self.id().rindex(".") + 1:],
+                self.id()[self.id().rindex(".") + 1 :],
                 random_string(10),
             )
 
@@ -124,8 +132,8 @@ class TestAfkakProducer(unittest.TestCase):
         producer = Producer(Mock())
         self.assertEqual(
             producer.__repr__(),
-            "<Producer <class 'afkak.partitioner.RoundRobinPartitioner'>:"
-            "Unbatched:1:1000>")
+            "<Producer <class 'afkak.partitioner.RoundRobinPartitioner'>:" "Unbatched:1:1000>",
+        )
         producer.stop()
 
     def test_producer_init_batch(self):
@@ -137,8 +145,8 @@ class TestAfkakProducer(unittest.TestCase):
         self.assertFalse(looper.running)
         self.assertEqual(
             producer.__repr__(),
-            "<Producer <class 'afkak.partitioner.RoundRobinPartitioner'>:"
-            "10cnt/32768bytes/30secs:1:1000>")
+            "<Producer <class 'afkak.partitioner.RoundRobinPartitioner'>:" "10cnt/32768bytes/30secs:1:1000>",
+        )
 
     def test_producer_bad_codec_value(self):
         with self.assertRaises(UnsupportedCodecError):
@@ -146,7 +154,7 @@ class TestAfkakProducer(unittest.TestCase):
 
     def test_producer_bad_codec_type(self):
         with self.assertRaises(TypeError):
-            Producer(Mock(), codec='bogus')
+            Producer(Mock(), codec="bogus")
 
     def test_producer_send_messages(self):
         first_part = 23
@@ -161,12 +169,11 @@ class TestAfkakProducer(unittest.TestCase):
         producer = Producer(client, ack_timeout=ack_timeout)
         d = producer.send_messages(self.topic, msgs=msgs)
         # Check the expected request was sent
-        msgSet = create_message_set(
-            make_send_requests(msgs), producer.codec)
+        msgSet = create_message_set(make_send_requests(msgs), producer.codec)
         req = ProduceRequest(self.topic, first_part, msgSet)
         client.send_produce_request.assert_called_once_with(
-            [req], acks=producer.req_acks, timeout=ack_timeout,
-            fail_on_error=False)
+            [req], acks=producer.req_acks, timeout=ack_timeout, fail_on_error=False
+        )
         # Check results when "response" fires
         self.assertNoResult(d)
         resp = [ProduceResponse(self.topic, first_part, 0, 10)]
@@ -188,34 +195,32 @@ class TestAfkakProducer(unittest.TestCase):
         client.metadata_error_for_topic.return_value = False
         msgs1 = [self.msg("one"), self.msg("two")]
         msgs2 = [self.msg("three"), self.msg("four")]
-        key1 = b'35'
-        key2 = b'foo'
+        key1 = b"35"
+        key2 = b"foo"
         ack_timeout = 5
 
         # Even though we're sending keyed messages, we use the default
         # round-robin partitioner, since the requests are easier to predict
-        producer = Producer(client, ack_timeout=ack_timeout, batch_send=True,
-                            batch_every_n=4)
+        producer = Producer(client, ack_timeout=ack_timeout, batch_send=True, batch_every_n=4)
         d1 = producer.send_messages(self.topic, key=key1, msgs=msgs1)
         d2 = producer.send_messages(self.topic, key=key2, msgs=msgs2)
         # Check the expected request was sent
-        msgSet1 = create_message_set(
-            make_send_requests(msgs1, key=key1), producer.codec)
-        msgSet2 = create_message_set(
-            make_send_requests(msgs2, key=key2), producer.codec)
+        msgSet1 = create_message_set(make_send_requests(msgs1, key=key1), producer.codec)
+        msgSet2 = create_message_set(make_send_requests(msgs2, key=key2), producer.codec)
         req1 = ProduceRequest(self.topic, first_part, msgSet1)
         req2 = ProduceRequest(self.topic, second_part, msgSet2)
         # Annoying, but order of requests is indeterminate...
         client.send_produce_request.assert_called_once_with(
-            ANY, acks=producer.req_acks, timeout=ack_timeout,
-            fail_on_error=False)
-        self.assertEqual(sorted([req1, req2]),
-                         sorted(client.send_produce_request.call_args[0][0]))
+            ANY, acks=producer.req_acks, timeout=ack_timeout, fail_on_error=False
+        )
+        self.assertEqual(sorted([req1, req2]), sorted(client.send_produce_request.call_args[0][0]))
         # Check results when "response" fires
         self.assertNoResult(d1)
         self.assertNoResult(d2)
-        resp = [ProduceResponse(self.topic, first_part, 0, 10),
-                ProduceResponse(self.topic, second_part, 0, 23)]
+        resp = [
+            ProduceResponse(self.topic, first_part, 0, 10),
+            ProduceResponse(self.topic, second_part, 0, 23),
+        ]
         ret1.callback(resp)
         result = self.successResultOf(d1)
         self.assertEqual(result, resp[0])
@@ -238,37 +243,40 @@ class TestAfkakProducer(unittest.TestCase):
         msgs1 = [self.msg("one"), self.msg("two")]
         msgs2 = [self.msg("odd_man_out")]
         msgs3 = [self.msg("three"), self.msg("four")]
-        key1 = b'99'
-        key3 = b'foo'
+        key1 = b"99"
+        key3 = b"foo"
         ack_timeout = 5
 
         # Even though we're sending keyed messages, we use the default
         # round-robin partitioner, since the requests are easier to predict
-        producer = Producer(client, ack_timeout=ack_timeout, batch_send=True,
-                            batch_every_n=4)
+        producer = Producer(client, ack_timeout=ack_timeout, batch_send=True, batch_every_n=4)
         d1 = producer.send_messages(self.topic, key=key1, msgs=msgs1)
         d2 = producer.send_messages(self.topic, msgs=msgs2)
         d3 = producer.send_messages(self.topic, key=key3, msgs=msgs3)
         # Check the expected request was sent
         msgSet1 = create_message_set(
-            [make_send_requests(msgs1, key=key1)[0],
-             make_send_requests(msgs3, key=key3)[0]], producer.codec)
-        msgSet2 = create_message_set(make_send_requests(
-            msgs2), producer.codec)
+            [
+                make_send_requests(msgs1, key=key1)[0],
+                make_send_requests(msgs3, key=key3)[0],
+            ],
+            producer.codec,
+        )
+        msgSet2 = create_message_set(make_send_requests(msgs2), producer.codec)
         req1 = ProduceRequest(self.topic, first_part, msgSet1)
         req2 = ProduceRequest(self.topic, second_part, msgSet2)
         # Annoying, but order of requests is indeterminate...
         client.send_produce_request.assert_called_once_with(
-            ANY, acks=producer.req_acks, timeout=ack_timeout,
-            fail_on_error=False)
-        self.assertEqual(sorted([req1, req2]),
-                         sorted(client.send_produce_request.call_args[0][0]))
+            ANY, acks=producer.req_acks, timeout=ack_timeout, fail_on_error=False
+        )
+        self.assertEqual(sorted([req1, req2]), sorted(client.send_produce_request.call_args[0][0]))
         # Check results when "response" fires
         self.assertNoResult(d1)
         self.assertNoResult(d2)
         self.assertNoResult(d3)
-        resp = [ProduceResponse(self.topic, first_part, 0, 10),
-                ProduceResponse(self.topic, second_part, 0, 23)]
+        resp = [
+            ProduceResponse(self.topic, first_part, 0, 10),
+            ProduceResponse(self.topic, second_part, 0, 23),
+        ]
         ret1.callback(resp)
         result = self.successResultOf(d1)
         self.assertEqual(result, resp[0])
@@ -288,16 +296,14 @@ class TestAfkakProducer(unittest.TestCase):
         msgs = [self.msg("one"), self.msg("two")]
         ack_timeout = 5
 
-        producer = Producer(client, ack_timeout=ack_timeout,
-                            req_acks=PRODUCER_ACK_NOT_REQUIRED)
+        producer = Producer(client, ack_timeout=ack_timeout, req_acks=PRODUCER_ACK_NOT_REQUIRED)
         d = producer.send_messages(self.topic, msgs=msgs)
         # Check the expected request was sent
-        msgSet = create_message_set(
-            make_send_requests(msgs), producer.codec)
+        msgSet = create_message_set(make_send_requests(msgs), producer.codec)
         req = ProduceRequest(self.topic, first_part, msgSet)
         client.send_produce_request.assert_called_once_with(
-            [req], acks=producer.req_acks, timeout=ack_timeout,
-            fail_on_error=False)
+            [req], acks=producer.req_acks, timeout=ack_timeout, fail_on_error=False
+        )
         # Check results when "response" fires
         self.assertNoResult(d)
         ret.callback([])
@@ -316,12 +322,14 @@ class TestAfkakProducer(unittest.TestCase):
         producer = Producer(client, max_req_attempts=1)
         d = producer.send_messages(self.topic, msgs=msgs)
         # Check the expected request was sent
-        msgSet = create_message_set(
-            make_send_requests(msgs), producer.codec)
+        msgSet = create_message_set(make_send_requests(msgs), producer.codec)
         req = ProduceRequest(self.topic, 0, msgSet)
         client.send_produce_request.assert_called_once_with(
-            [req], acks=producer.req_acks, timeout=producer.ack_timeout,
-            fail_on_error=False)
+            [req],
+            acks=producer.req_acks,
+            timeout=producer.ack_timeout,
+            fail_on_error=False,
+        )
         self.failureResultOf(d, BrokerNotAvailableError)
 
         producer.stop()
@@ -336,10 +344,9 @@ class TestAfkakProducer(unittest.TestCase):
 
         producer = Producer(client)
         # FIXME: Don't use patch to test logging
-        with patch.object(aProducer, 'log') as klog:
+        with patch.object(aProducer, "log") as klog:
             d = producer.send_messages(self.topic, msgs=msgs)
-            klog.error.assert_called_once_with(
-                'Unexpected failure: %r in _handle_send_response', f)
+            klog.error.assert_called_once_with("Unexpected failure: %r in _handle_send_response", f)
         self.failureResultOf(d, TypeError)
 
         producer.stop()
@@ -357,12 +364,11 @@ class TestAfkakProducer(unittest.TestCase):
         producer = Producer(client, ack_timeout=ack_timeout)
         d = producer.send_messages(self.topic, msgs=msgs)
         # Check the expected request was sent
-        msgSet = create_message_set(
-            make_send_requests(msgs), producer.codec)
+        msgSet = create_message_set(make_send_requests(msgs), producer.codec)
         req = ProduceRequest(self.topic, first_part, msgSet)
         client.send_produce_request.assert_called_once_with(
-            [req], acks=producer.req_acks, timeout=ack_timeout,
-            fail_on_error=False)
+            [req], acks=producer.req_acks, timeout=ack_timeout, fail_on_error=False
+        )
         # Check results when "response" fires
         self.assertNoResult(d)
         resp = [ProduceResponse(self.topic, first_part, 0, 10)]
@@ -376,18 +382,17 @@ class TestAfkakProducer(unittest.TestCase):
         client = Mock(reactor=MemoryReactorClock())
         client.topic_partitions = {self.topic: [0, 1, 2, 3]}
         client.metadata_error_for_topic.return_value = False
-        e = ValueError('test_producer_complete_batch_send_unexpected_error')
+        e = ValueError("test_producer_complete_batch_send_unexpected_error")
         client.send_produce_request.side_effect = e
         msgs = [self.msg("one"), self.msg("two")]
 
         producer = Producer(client)
         # FIXME: Don't use patch to test logging
-        with patch.object(aProducer, 'log') as klog:
+        with patch.object(aProducer, "log") as klog:
             producer.send_messages(self.topic, msgs=msgs)
             # The error 'e' gets wrapped in a failure with a traceback, so
             # we can't easily match the call exactly...
-            klog.error.assert_called_once_with(
-                'Failure detected in _complete_batch_send: %r', ANY, exc_info=ANY)
+            klog.error.assert_called_once_with("Failure detected in _complete_batch_send: %r", ANY, exc_info=ANY)
 
         producer.stop()
 
@@ -405,12 +410,14 @@ class TestAfkakProducer(unittest.TestCase):
         producer = Producer(client, batch_every_n=batch_n, batch_send=True)
         d = producer.send_messages(self.topic, msgs=msgs)
         # Check the expected request was sent
-        msgSet = create_message_set(
-            make_send_requests(msgs), producer.codec)
+        msgSet = create_message_set(make_send_requests(msgs), producer.codec)
         req = ProduceRequest(self.topic, ANY, msgSet)
         client.send_produce_request.assert_called_once_with(
-            [req], acks=producer.req_acks, timeout=producer.ack_timeout,
-            fail_on_error=False)
+            [req],
+            acks=producer.req_acks,
+            timeout=producer.ack_timeout,
+            fail_on_error=False,
+        )
         # At first, there's no result. Have to retry due to first failure
         self.assertNoResult(d)
         clock.advance(producer._retry_interval)
@@ -436,7 +443,7 @@ class TestAfkakProducer(unittest.TestCase):
         """
         clock = MemoryReactorClock()
         client = Mock(reactor=clock)
-        topic2 = u'tpsmbps_two'
+        topic2 = "tpsmbps_two"
         client.topic_partitions = {self.topic: [0, 1, 2, 3], topic2: [4, 5, 6]}
         client.metadata_error_for_topic.return_value = False
 
@@ -499,8 +506,7 @@ class TestAfkakProducer(unittest.TestCase):
         msgs = [self.msg("one"), self.msg("two")]
         batch_t = 5
 
-        producer = Producer(client, batch_every_t=batch_t, batch_send=True,
-                            max_req_attempts=3)
+        producer = Producer(client, batch_every_t=batch_t, batch_send=True, max_req_attempts=3)
         # Advance the clock to ensure when no messages to send no error
         clock.advance(batch_t)
         d = producer.send_messages(self.topic, msgs=msgs)
@@ -509,18 +515,19 @@ class TestAfkakProducer(unittest.TestCase):
         # Advance the clock
         clock.advance(batch_t)
         # Check the expected request was sent
-        msgSet = create_message_set(
-            make_send_requests(msgs), producer.codec)
+        msgSet = create_message_set(make_send_requests(msgs), producer.codec)
         req = ProduceRequest(self.topic, 0, msgSet)
-        produce_request_call = call([req], acks=producer.req_acks,
-                                    timeout=producer.ack_timeout,
-                                    fail_on_error=False)
+        produce_request_call = call(
+            [req],
+            acks=producer.req_acks,
+            timeout=producer.ack_timeout,
+            fail_on_error=False,
+        )
         produce_request_calls = [produce_request_call]
         client.send_produce_request.assert_has_calls(produce_request_calls)
         self.assertNoResult(d)
         # Fire the failure from the first request to the client
-        ret[0].errback(OffsetOutOfRangeError(
-            'test_producer_send_messages_batched_fail'))
+        ret[0].errback(OffsetOutOfRangeError("test_producer_send_messages_batched_fail"))
         # Still no result, producer should retry first
         self.assertNoResult(d)
         # Check retry wasn't immediate
@@ -531,8 +538,7 @@ class TestAfkakProducer(unittest.TestCase):
         produce_request_calls.append(produce_request_call)
         client.send_produce_request.assert_has_calls(produce_request_calls)
         # Fire the failure from the 2nd request to the client
-        ret[1].errback(BrokerNotAvailableError(
-            'test_producer_send_messages_batched_fail_2'))
+        ret[1].errback(BrokerNotAvailableError("test_producer_send_messages_batched_fail_2"))
         # Still no result, producer should retry one more time
         self.assertNoResult(d)
         # Advance the clock by the retry delay
@@ -541,8 +547,7 @@ class TestAfkakProducer(unittest.TestCase):
         produce_request_calls.append(produce_request_call)
         client.send_produce_request.assert_has_calls(produce_request_calls)
         # Fire the failure from the 2nd request to the client
-        ret[2].errback(LeaderNotAvailableError(
-            'test_producer_send_messages_batched_fail_3'))
+        ret[2].errback(LeaderNotAvailableError("test_producer_send_messages_batched_fail_3"))
 
         self.failureResultOf(d, LeaderNotAvailableError)
 
@@ -627,8 +632,7 @@ class TestAfkakProducer(unittest.TestCase):
         # Advance the clock again to complete the delay
         clock.advance(producer._retry_interval)
         # Make sure the retry got reset
-        self.assertEqual(producer._retry_interval,
-                         producer._init_retry_interval)
+        self.assertEqual(producer._retry_interval, producer._init_retry_interval)
         producer.stop()
 
     def test_producer_cancel_one_request_getting_topic(self):
@@ -657,12 +661,14 @@ class TestAfkakProducer(unittest.TestCase):
         client.metadata_error_for_topic.return_value = False
         ret.callback(None)
         # Expect that only the msgs2 messages were sent
-        msgSet = create_message_set(
-            make_send_requests(msgs2), producer.codec)
+        msgSet = create_message_set(make_send_requests(msgs2), producer.codec)
         req = ProduceRequest(self.topic, 1, msgSet)
         client.send_produce_request.assert_called_once_with(
-            [req], acks=producer.req_acks, timeout=producer.ack_timeout,
-            fail_on_error=False)
+            [req],
+            acks=producer.req_acks,
+            timeout=producer.ack_timeout,
+            fail_on_error=False,
+        )
 
         producer.stop()
 
@@ -752,12 +758,11 @@ class TestAfkakProducer(unittest.TestCase):
         producer = Producer(client, ack_timeout=ack_timeout)
         d = producer.send_messages(self.topic, msgs=msgs)
         # Check the expected request was sent
-        msgSet = create_message_set(
-            make_send_requests(msgs), producer.codec)
+        msgSet = create_message_set(make_send_requests(msgs), producer.codec)
         req = ProduceRequest(self.topic, first_part, msgSet)
         client.send_produce_request.assert_called_once_with(
-            [req], acks=producer.req_acks, timeout=ack_timeout,
-            fail_on_error=False)
+            [req], acks=producer.req_acks, timeout=ack_timeout, fail_on_error=False
+        )
         # Check results when "response" fires
         self.assertNoResult(d)
         ret.callback([])
@@ -778,22 +783,22 @@ class TestAfkakProducer(unittest.TestCase):
         batch_t = 5
 
         # FIXME: Don't use patch to test logging
-        with patch.object(aProducer, 'log') as klog:
+        with patch.object(aProducer, "log") as klog:
             producer = Producer(client, batch_send=True, batch_every_t=batch_t)
             msgs = [self.msg("one"), self.msg("two")]
             d = producer.send_messages(self.topic, msgs=msgs)
             # Check no request was yet sent
             self.assertFalse(client.send_produce_request.called)
             # Patch Producer's Deferred to throw an exception
-            with patch.object(aProducer, 'Deferred') as d:
-                d.side_effect = ValueError(
-                    "test_producer_send_timer_failed induced failure")
+            with patch.object(aProducer, "Deferred") as d:
+                d.side_effect = ValueError("test_producer_send_timer_failed induced failure")
                 # Advance the clock
                 clock.advance(batch_t)
             # Check the expected message was logged by the looping call restart
             klog.warning.assert_called_once_with(
-                'Batch timer failed: %s. Will restart.',
-                ANY, exc_info=ANY,
+                "Batch timer failed: %s. Will restart.",
+                ANY,
+                exc_info=ANY,
             )
         # Check that the looping call was restarted
         self.assertTrue(producer._sendLooper.running)

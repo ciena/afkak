@@ -43,55 +43,42 @@ _ALL_CODECS = (CODEC_NONE, CODEC_GZIP, CODEC_SNAPPY)
 ###############
 # SendRequest is used to encapsulate messages and keys prior to
 # creating a message set
-SendRequest = namedtuple(
-    "SendRequest", ["topic", "key", "messages", "deferred"])
+SendRequest = namedtuple("SendRequest", ["topic", "key", "messages", "deferred"])
 
 # Request payloads
-ProduceRequest = namedtuple("ProduceRequest",
-                            ["topic", "partition", "messages"])
+ProduceRequest = namedtuple("ProduceRequest", ["topic", "partition", "messages"])
 
-FetchRequest = namedtuple("FetchRequest",
-                          ["topic", "partition", "offset", "max_bytes"])
+FetchRequest = namedtuple("FetchRequest", ["topic", "partition", "offset", "max_bytes"])
 
-OffsetRequest = namedtuple("OffsetRequest",
-                           ["topic", "partition", "time", "max_offsets"])
+OffsetRequest = namedtuple("OffsetRequest", ["topic", "partition", "time", "max_offsets"])
 
 # This is currently for the API_Version=1
-OffsetCommitRequest = namedtuple("OffsetCommitRequest",
-                                 ["topic", "partition", "offset", "timestamp",
-                                  "metadata"])
+OffsetCommitRequest = namedtuple("OffsetCommitRequest", ["topic", "partition", "offset", "timestamp", "metadata"])
 
 OffsetFetchRequest = namedtuple("OffsetFetchRequest", ["topic", "partition"])
 
 # Response payloads
-ProduceResponse = namedtuple("ProduceResponse",
-                             ["topic", "partition", "error", "offset"])
+ProduceResponse = namedtuple("ProduceResponse", ["topic", "partition", "error", "offset"])
 
-FetchResponse = namedtuple("FetchResponse", ["topic", "partition", "error",
-                                             "highwaterMark", "messages"])
+FetchResponse = namedtuple("FetchResponse", ["topic", "partition", "error", "highwaterMark", "messages"])
 
-OffsetResponse = namedtuple("OffsetResponse",
-                            ["topic", "partition", "error", "offsets"])
+OffsetResponse = namedtuple("OffsetResponse", ["topic", "partition", "error", "offsets"])
 
-OffsetCommitResponse = namedtuple("OffsetCommitResponse",
-                                  ["topic", "partition", "error"])
+OffsetCommitResponse = namedtuple("OffsetCommitResponse", ["topic", "partition", "error"])
 
-OffsetFetchResponse = namedtuple("OffsetFetchResponse",
-                                 ["topic", "partition", "offset",
-                                  "metadata", "error"])
+OffsetFetchResponse = namedtuple("OffsetFetchResponse", ["topic", "partition", "offset", "metadata", "error"])
 
-ConsumerMetadataResponse = namedtuple("ConsumerMetadataResponse",
-                                      ["error", "node_id", "host", "port"])
+ConsumerMetadataResponse = namedtuple("ConsumerMetadataResponse", ["error", "node_id", "host", "port"])
 
 # Metadata tuples
 BrokerMetadata = namedtuple("BrokerMetadata", ["node_id", "host", "port"])
 
-TopicMetadata = namedtuple("TopicMetadata", ["topic", "topic_error_code",
-                                             "partition_metadata"])
+TopicMetadata = namedtuple("TopicMetadata", ["topic", "topic_error_code", "partition_metadata"])
 
-PartitionMetadata = namedtuple("PartitionMetadata",
-                               ["topic", "partition", "partition_error_code",
-                                "leader", "replicas", "isr"])
+PartitionMetadata = namedtuple(
+    "PartitionMetadata",
+    ["topic", "partition", "partition_error_code", "leader", "replicas", "isr"],
+)
 
 
 # Requests and responses for consumer groups
@@ -113,6 +100,7 @@ class _JoinGroupRequest(object):
     """
     A request to join a coordinator group.
     """
+
     group = attr.ib()
     session_timeout = attr.ib()
     member_id = attr.ib()
@@ -174,8 +162,7 @@ OffsetAndMessage = namedtuple("OffsetAndMessage", ["offset", "message"])
 
 
 TopicAndPartition = namedtuple("TopicAndPartition", ["topic", "partition"])
-SourcedMessage = namedtuple(
-    "SourcedMessage", TopicAndPartition._fields + OffsetAndMessage._fields)
+SourcedMessage = namedtuple("SourcedMessage", TopicAndPartition._fields + OffsetAndMessage._fields)
 
 
 class Message(namedtuple("Message", ["magic", "attributes", "key", "value"])):
@@ -192,32 +179,33 @@ class Message(namedtuple("Message", ["magic", "attributes", "key", "value"])):
 
     .. _message: https://kafka.apache.org/documentation/#messageset
     """
+
     __slots__ = ()
 
     def __repr__(self):
-        bits = ['<Message v0']
+        bits = ["<Message v0"]
 
         if self.attributes != 0:
             if self.attributes == CODEC_GZIP:
-                codec = ' CODEC_GZIP'
+                codec = " CODEC_GZIP"
             elif self.attributes == CODEC_SNAPPY:
-                codec = ' CODEC_SNAPPY'
+                codec = " CODEC_SNAPPY"
             elif self.attributes == CODEC_LZ4:
-                codec = ' CODEC_LZ4'
+                codec = " CODEC_LZ4"
             else:
-                codec = ' attributes=0x{:x}'.format(self.attributes)
+                codec = " attributes=0x{:x}".format(self.attributes)
             bits.append(codec)
 
         if self.key is not None:
-            bits.append(' key={!r}'.format(self.key))
+            bits.append(" key={!r}".format(self.key))
 
         if self.value is None or len(self.value) < 1024:
-            bits.append(' value={!r}'.format(self.value))
+            bits.append(" value={!r}".format(self.value))
         else:
-            bits.append(' value={:,d} bytes {!r}...'.format(len(self.value), self.value[:512]))
+            bits.append(" value={:,d} bytes {!r}...".format(len(self.value), self.value[:512]))
 
-        bits.append('>')
-        return ''.join(bits)
+        bits.append(">")
+        return "".join(bits)
 
 
 #################
@@ -233,6 +221,7 @@ class ClientError(KafkaError):
     """
     Generic error when the client detects an error
     """
+
     pass
 
 
@@ -240,6 +229,7 @@ class RestartError(ClientError):
     """
     Raised when a consumer start() call is made on an already running consumer
     """
+
     pass
 
 
@@ -248,6 +238,7 @@ class RestopError(ClientError):
     Raised when a consumer stop() or shutdown() call is made on a
     non-running consumer
     """
+
     pass
 
 
@@ -277,15 +268,16 @@ class BrokerResponseError(KafkaError):
 
     .. _error code: https://kafka.apache.org/protocol.html#protocol_error_codes
     """
+
     retriable = False
     message = None
 
     def __str__(self):
         base = Exception.__str__(self)
         if self.message is None:
-            return 'error={:d} {}'.format(self.errno, base)
+            return "error={:d} {}".format(self.errno, base)
         else:
-            return 'error={:d} ({}) {}'.format(self.errno, self.message, base)
+            return "error={:d} ({}) {}".format(self.errno, self.message, base)
 
     @classmethod
     def raise_for_errno(cls, errno, *args):
@@ -316,22 +308,23 @@ class RetriableBrokerResponseError(BrokerResponseError):
     `RetriableBrokerResponseError` is the shared superclass of all broker
     errors which can be retried.
     """
+
     retriable = True
 
 
 class UnknownError(BrokerResponseError):
     errno = -1
-    message = 'UNKNOWN_SERVER_ERROR'
+    message = "UNKNOWN_SERVER_ERROR"
 
 
 class OffsetOutOfRangeError(BrokerResponseError):
     errno = 1
-    message = 'OFFSET_OUT_OF_RANGE'
+    message = "OFFSET_OUT_OF_RANGE"
 
 
 class CorruptMessage(RetriableBrokerResponseError):
     errno = 2
-    message = 'CORRUPT_MESSAGE'
+    message = "CORRUPT_MESSAGE"
 
 
 # Compatibility alias:
@@ -340,57 +333,57 @@ InvalidMessageError = CorruptMessage
 
 class UnknownTopicOrPartitionError(RetriableBrokerResponseError):
     errno = 3
-    message = 'UNKNOWN_TOPIC_OR_PARTITION'
+    message = "UNKNOWN_TOPIC_OR_PARTITION"
 
 
 class InvalidFetchRequestError(BrokerResponseError):
     errno = 4
-    message = 'INVALID_FETCH_SIZE'
+    message = "INVALID_FETCH_SIZE"
 
 
 class LeaderNotAvailableError(RetriableBrokerResponseError):
     errno = 5
-    message = 'LEADER_NOT_AVAILABLE'
+    message = "LEADER_NOT_AVAILABLE"
 
 
 class NotLeaderForPartitionError(RetriableBrokerResponseError):
     errno = 6
-    message = 'NOT_LEADER_FOR_PARTITION'
+    message = "NOT_LEADER_FOR_PARTITION"
 
 
 class RequestTimedOutError(RetriableBrokerResponseError):
     errno = 7
-    message = 'REQUEST_TIMED_OUT'
+    message = "REQUEST_TIMED_OUT"
 
 
 class BrokerNotAvailableError(BrokerResponseError):
     errno = 8
-    message = 'BROKER_NOT_AVAILABLE'
+    message = "BROKER_NOT_AVAILABLE"
 
 
 class ReplicaNotAvailableError(BrokerResponseError):
     errno = 9
-    message = 'REPLICA_NOT_AVAILABLE'
+    message = "REPLICA_NOT_AVAILABLE"
 
 
 class MessageSizeTooLargeError(BrokerResponseError):
     errno = 10
-    message = 'MESSAGE_SIZE_TOO_LARGE'
+    message = "MESSAGE_SIZE_TOO_LARGE"
 
 
 class StaleControllerEpochError(BrokerResponseError):
     errno = 11
-    message = 'STALE_CONTROLLER_EPOCH'
+    message = "STALE_CONTROLLER_EPOCH"
 
 
 class OffsetMetadataTooLargeError(BrokerResponseError):
     errno = 12
-    message = 'OFFSET_METADATA_TOO_LARGE'
+    message = "OFFSET_METADATA_TOO_LARGE"
 
 
 class NetworkException(RetriableBrokerResponseError):
     errno = 13
-    message = 'NETWORK_EXCEPTION'
+    message = "NETWORK_EXCEPTION"
 
 
 # Compatibility alias:
@@ -399,7 +392,7 @@ StaleLeaderEpochCodeError = NetworkException
 
 class CoordinatorLoadInProgress(RetriableBrokerResponseError):
     errno = 14
-    message = 'COORDINATOR_LOAD_IN_PROGRESS'
+    message = "COORDINATOR_LOAD_IN_PROGRESS"
 
 
 # Compatibility alias:
@@ -408,7 +401,7 @@ OffsetsLoadInProgressError = CoordinatorLoadInProgress
 
 class CoordinatorNotAvailable(RetriableBrokerResponseError):
     errno = 15
-    message = 'COORDINATOR_NOT_AVAILABLE'
+    message = "COORDINATOR_NOT_AVAILABLE"
 
 
 # Compatibility alias:
@@ -417,7 +410,7 @@ ConsumerCoordinatorNotAvailableError = CoordinatorNotAvailable
 
 class NotCoordinator(RetriableBrokerResponseError):
     errno = 16
-    message = 'NOT_COORDINATOR'
+    message = "NOT_COORDINATOR"
 
 
 # Compatibility alias:
@@ -429,6 +422,7 @@ class InvalidTopic(BrokerResponseError):
     The request specified an illegal topic name. The name is either malformed
     or references an internal topic for which the operation is not valid.
     """
+
     errno = 17
     message = "INVALID_TOPIC_EXCEPTION"
 
@@ -438,6 +432,7 @@ class RecordListTooLarge(BrokerResponseError):
     The produce request message batch exceeds the maximum configured segment
     size.
     """
+
     errno = 18
     message = "RECORD_LIST_TOO_LARGE"
 
@@ -447,6 +442,7 @@ class NotEnoughReplicas(RetriableBrokerResponseError):
     The number of in-sync replicas is lower than can satisfy the number of acks
     required by the produce request.
     """
+
     errno = 19
     message = "NOT_ENOUGH_REPLICAS"
 
@@ -456,6 +452,7 @@ class NotEnoughReplicasAfterAppend(RetriableBrokerResponseError):
     The produce request was written to the log, but not by as many in-sync
     replicas as it required.
     """
+
     errno = 20
     message = "NOT_ENOUGH_REPLICAS_AFTER_APPEND"
 
@@ -517,207 +514,207 @@ class ClusterAuthorizationFailed(BrokerResponseError):
 
 class InvalidTimestamp(BrokerResponseError):
     errno = 32
-    message = 'INVALID_TIMESTAMP'
+    message = "INVALID_TIMESTAMP"
 
 
 class UnsupportedSaslMechanism(BrokerResponseError):
     errno = 33
-    message = 'UNSUPPORTED_SASL_MECHANISM'
+    message = "UNSUPPORTED_SASL_MECHANISM"
 
 
 class IllegalSaslState(BrokerResponseError):
     errno = 34
-    message = 'ILLEGAL_SASL_STATE'
+    message = "ILLEGAL_SASL_STATE"
 
 
 class UnsupportedVersion(BrokerResponseError):
     errno = 35
-    message = 'UNSUPPORTED_VERSION'
+    message = "UNSUPPORTED_VERSION"
 
 
 class TopicAlreadyExists(BrokerResponseError):
     errno = 36
-    message = 'TOPIC_ALREADY_EXISTS'
+    message = "TOPIC_ALREADY_EXISTS"
 
 
 class InvalidPartitions(BrokerResponseError):
     errno = 37
-    message = 'INVALID_PARTITIONS'
+    message = "INVALID_PARTITIONS"
 
 
 class InvalidReplicationFactor(BrokerResponseError):
     errno = 38
-    message = 'INVALID_REPLICATION_FACTOR'
+    message = "INVALID_REPLICATION_FACTOR"
 
 
 class InvalidReplicaAssignment(BrokerResponseError):
     errno = 39
-    message = 'INVALID_REPLICA_ASSIGNMENT'
+    message = "INVALID_REPLICA_ASSIGNMENT"
 
 
 class InvalidConfig(BrokerResponseError):
     errno = 40
-    message = 'INVALID_CONFIG'
+    message = "INVALID_CONFIG"
 
 
 class NotController(RetriableBrokerResponseError):
     errno = 41
-    message = 'NOT_CONTROLLER'
+    message = "NOT_CONTROLLER"
 
 
 class InvalidRequest(BrokerResponseError):
     errno = 42
-    message = 'INVALID_REQUEST'
+    message = "INVALID_REQUEST"
 
 
 class UnsupportedForMessageFormat(BrokerResponseError):
     errno = 43
-    message = 'UNSUPPORTED_FOR_MESSAGE_FORMAT'
+    message = "UNSUPPORTED_FOR_MESSAGE_FORMAT"
 
 
 class PolicyViolation(BrokerResponseError):
     errno = 44
-    message = 'POLICY_VIOLATION'
+    message = "POLICY_VIOLATION"
 
 
 class OutOfOrderSequenceNumber(BrokerResponseError):
     errno = 45
-    message = 'OUT_OF_ORDER_SEQUENCE_NUMBER'
+    message = "OUT_OF_ORDER_SEQUENCE_NUMBER"
 
 
 class DuplicateSequenceNumber(BrokerResponseError):
     errno = 46
-    message = 'DUPLICATE_SEQUENCE_NUMBER'
+    message = "DUPLICATE_SEQUENCE_NUMBER"
 
 
 class InvalidProducerEpoch(BrokerResponseError):
     errno = 47
-    message = 'INVALID_PRODUCER_EPOCH'
+    message = "INVALID_PRODUCER_EPOCH"
 
 
 class InvalidTxnState(BrokerResponseError):
     errno = 48
-    message = 'INVALID_TXN_STATE'
+    message = "INVALID_TXN_STATE"
 
 
 class InvalidProducerIdMapping(BrokerResponseError):
     errno = 49
-    message = 'INVALID_PRODUCER_ID_MAPPING'
+    message = "INVALID_PRODUCER_ID_MAPPING"
 
 
 class InvalidTransactionTimeout(BrokerResponseError):
     errno = 50
-    message = 'INVALID_TRANSACTION_TIMEOUT'
+    message = "INVALID_TRANSACTION_TIMEOUT"
 
 
 class ConcurrentTransactions(BrokerResponseError):
     errno = 51
-    message = 'CONCURRENT_TRANSACTIONS'
+    message = "CONCURRENT_TRANSACTIONS"
 
 
 class TransactionCoordinatorFenced(BrokerResponseError):
     errno = 52
-    message = 'TRANSACTION_COORDINATOR_FENCED'
+    message = "TRANSACTION_COORDINATOR_FENCED"
 
 
 class TransactionalIdAuthorizationFailed(BrokerResponseError):
     errno = 53
-    message = 'TRANSACTIONAL_ID_AUTHORIZATION_FAILED'
+    message = "TRANSACTIONAL_ID_AUTHORIZATION_FAILED"
 
 
 class SecurityDisabled(BrokerResponseError):
     errno = 54
-    message = 'SECURITY_DISABLED'
+    message = "SECURITY_DISABLED"
 
 
 class OperationNotAttempted(BrokerResponseError):
     errno = 55
-    message = 'OPERATION_NOT_ATTEMPTED'
+    message = "OPERATION_NOT_ATTEMPTED"
 
 
 class KafkaStorageError(RetriableBrokerResponseError):
     errno = 56
-    message = 'KAFKA_STORAGE_ERROR'
+    message = "KAFKA_STORAGE_ERROR"
 
 
 class LogDirNotFound(BrokerResponseError):
     errno = 57
-    message = 'LOG_DIR_NOT_FOUND'
+    message = "LOG_DIR_NOT_FOUND"
 
 
 class SaslAuthenticationFailed(BrokerResponseError):
     errno = 58
-    message = 'SASL_AUTHENTICATION_FAILED'
+    message = "SASL_AUTHENTICATION_FAILED"
 
 
 class UnknownProducerId(BrokerResponseError):
     errno = 59
-    message = 'UNKNOWN_PRODUCER_ID'
+    message = "UNKNOWN_PRODUCER_ID"
 
 
 class ReassignmentInProgress(BrokerResponseError):
     errno = 60
-    message = 'REASSIGNMENT_IN_PROGRESS'
+    message = "REASSIGNMENT_IN_PROGRESS"
 
 
 class DelegationTokenAuthDisabled(BrokerResponseError):
     errno = 61
-    message = 'DELEGATION_TOKEN_AUTH_DISABLED'
+    message = "DELEGATION_TOKEN_AUTH_DISABLED"
 
 
 class DelegationTokenNotFound(BrokerResponseError):
     errno = 62
-    message = 'DELEGATION_TOKEN_NOT_FOUND'
+    message = "DELEGATION_TOKEN_NOT_FOUND"
 
 
 class DelegationTokenOwnerMismatch(BrokerResponseError):
     errno = 63
-    message = 'DELEGATION_TOKEN_OWNER_MISMATCH'
+    message = "DELEGATION_TOKEN_OWNER_MISMATCH"
 
 
 class DelegationTokenRequestNotAllowed(BrokerResponseError):
     errno = 64
-    message = 'DELEGATION_TOKEN_REQUEST_NOT_ALLOWED'
+    message = "DELEGATION_TOKEN_REQUEST_NOT_ALLOWED"
 
 
 class DelegationTokenAuthorizationFailed(BrokerResponseError):
     errno = 65
-    message = 'DELEGATION_TOKEN_AUTHORIZATION_FAILED'
+    message = "DELEGATION_TOKEN_AUTHORIZATION_FAILED"
 
 
 class DelegationTokenExpired(BrokerResponseError):
     errno = 66
-    message = 'DELEGATION_TOKEN_EXPIRED'
+    message = "DELEGATION_TOKEN_EXPIRED"
 
 
 class InvalidPrincipalType(BrokerResponseError):
     errno = 67
-    message = 'INVALID_PRINCIPAL_TYPE'
+    message = "INVALID_PRINCIPAL_TYPE"
 
 
 class NonEmptyGroup(BrokerResponseError):
     errno = 68
-    message = 'NON_EMPTY_GROUP'
+    message = "NON_EMPTY_GROUP"
 
 
 class GroupIdNotFound(BrokerResponseError):
     errno = 69
-    message = 'GROUP_ID_NOT_FOUND'
+    message = "GROUP_ID_NOT_FOUND"
 
 
 class FetchSessionIdNotFound(RetriableBrokerResponseError):
     errno = 70
-    message = 'FETCH_SESSION_ID_NOT_FOUND'
+    message = "FETCH_SESSION_ID_NOT_FOUND"
 
 
 class InvalidFetchSessionEpoch(RetriableBrokerResponseError):
     errno = 71
-    message = 'INVALID_FETCH_SESSION_EPOCH'
+    message = "INVALID_FETCH_SESSION_EPOCH"
 
 
 class ListenerNotFound(RetriableBrokerResponseError):
     errno = 72
-    message = 'LISTENER_NOT_FOUND'
+    message = "LISTENER_NOT_FOUND"
 
 
 class KafkaUnavailableError(KafkaError):
@@ -743,6 +740,7 @@ class FailedPayloadsError(KafkaError):
     :ivar list responses: Any successful responses.
     :ivar list failed_payloads: Two-tuples of (payload, failure).
     """
+
     responses = property(lambda self: self.args[0])
     failed_payloads = property(lambda self: self.args[1])
 
@@ -777,9 +775,9 @@ class CancelledError(KafkaError):
         self.message = message
 
     def __str__(self):
-        s = str(self.message) or 'Cancelled'
+        s = str(self.message) or "Cancelled"
         if self.request_sent is not None:
-            s += ' request_sent={!r}'.format(self.request_sent)
+            s += " request_sent={!r}".format(self.request_sent)
         return s
 
 
@@ -904,11 +902,11 @@ def _pretty_errno(errno):
     :returns: string suitable for a log message
     """
     if errno == 0:
-        message = 'no error'
+        message = "no error"
     else:
         cls = BrokerResponseError.errnos.get(errno)
         if cls is None:
-            message = 'unknown error'
+            message = "unknown error"
         else:
             message = cls.message
-    return '{:d} ({})'.format(errno, message)
+    return "{:d} ({})".format(errno, message)

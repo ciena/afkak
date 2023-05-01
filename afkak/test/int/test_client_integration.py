@@ -17,17 +17,13 @@
 import logging
 import random
 
-from twisted.internet.defer import inlineCallbacks
-from twisted.trial import unittest
-
-from afkak.common import (
-    FetchRequest, OffsetCommitRequest, OffsetFetchRequest, OffsetRequest,
-    ProduceRequest,
-)
+from afkak.common import FetchRequest, OffsetCommitRequest, OffsetFetchRequest, OffsetRequest, ProduceRequest
 from afkak.kafkacodec import create_message
 from afkak.test.testutil import random_string
 
 from .intutil import IntegrationMixin, kafka_versions
+from twisted.internet.defer import inlineCallbacks
+from twisted.trial import unittest
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +44,9 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         fetch = FetchRequest(self.topic, 0, 0, 1024)
 
         [fetch_resp] = yield self.retry_while_broker_errors(
-            self.client.send_fetch_request, [fetch], max_wait_time=1000,
+            self.client.send_fetch_request,
+            [fetch],
+            max_wait_time=1000,
         )
         self.assertEqual(fetch_resp.error, 0)
         self.assertEqual(fetch_resp.topic, self.topic)
@@ -60,13 +58,15 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
     @kafka_versions("all")
     @inlineCallbacks
     def test_produce_request(self):
-        produce = ProduceRequest(self.topic, 0, [
-            create_message(self.topic.encode() + b" message %d" % i)
-            for i in range(5)
-        ])
+        produce = ProduceRequest(
+            self.topic,
+            0,
+            [create_message(self.topic.encode() + b" message %d" % i) for i in range(5)],
+        )
 
         [produce_resp] = yield self.retry_while_broker_errors(
-            self.client.send_produce_request, [produce],
+            self.client.send_produce_request,
+            [produce],
         )
         self.assertEqual(produce_resp.error, 0)
         self.assertEqual(produce_resp.topic, self.topic)
@@ -80,10 +80,14 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         Send large messages of about 950 KB in size. Note that per the default
         configuration Kafka only allows up to 1 MiB messages.
         """
-        produce = ProduceRequest(self.topic, 0, [
-            create_message(self.topic.encode() + b" message %d: " % i + b"0123456789" * (950 * 100))
-            for i in range(5)
-        ])
+        produce = ProduceRequest(
+            self.topic,
+            0,
+            [
+                create_message(self.topic.encode() + b" message %d: " % i + b"0123456789" * (950 * 100))
+                for i in range(5)
+            ],
+        )
 
         [produce_resp] = yield self.retry_while_broker_errors(self.client.send_produce_request, [produce])
         self.assertEqual(produce_resp.error, 0)
@@ -97,23 +101,23 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         """
         A large request can be produced and fetched.
         """
-        log.debug('Timestamp Before ProduceRequest')
+        log.debug("Timestamp Before ProduceRequest")
         # Single message of a bit less than 1 MiB
-        message = create_message(self.topic.encode() + b" message 0: " + (b"0123456789" * 10 + b'\n') * 90)
+        message = create_message(self.topic.encode() + b" message 0: " + (b"0123456789" * 10 + b"\n") * 90)
         produce = ProduceRequest(self.topic, 0, [message])
-        log.debug('Timestamp before send')
+        log.debug("Timestamp before send")
         [produce_resp] = yield self.retry_while_broker_errors(self.client.send_produce_request, [produce])
-        log.debug('Timestamp after send')
+        log.debug("Timestamp after send")
         self.assertEqual(produce_resp.error, 0)
         self.assertEqual(produce_resp.topic, self.topic)
         self.assertEqual(produce_resp.partition, 0)
         self.assertEqual(produce_resp.offset, 0)
 
-        log.debug('Sending FetchRequest')
+        log.debug("Sending FetchRequest")
         # Fetch request with max size of 1 MiB
-        fetch = FetchRequest(self.topic, 0, 0, 1024 ** 2)
+        fetch = FetchRequest(self.topic, 0, 0, 1024**2)
         [fetch_resp] = yield self.client.send_fetch_request([fetch], max_wait_time=10000)
-        log.debug('Got FetchResponse %r', fetch_resp)
+        log.debug("Got FetchResponse %r", fetch_resp)
         self.assertEqual(fetch_resp.error, 0)
         self.assertEqual(fetch_resp.topic, self.topic)
         self.assertEqual(fetch_resp.partition, 0)
@@ -146,15 +150,19 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         # the fetch, but under 0.8.2.1 with a API_version of 0, it's not. Switch
         # to using the V1 API and it works.
         c_group = "CG_1"
-        metadata = "My_Metadata_{}".format(random_string(10)).encode('ascii')
+        metadata = "My_Metadata_{}".format(random_string(10)).encode("ascii")
         offset = random.randint(0, 1024)
-        log.debug("Committing offset: %d metadata: %s for topic: %s part: 0",
-                  offset, metadata, self.topic)
+        log.debug(
+            "Committing offset: %d metadata: %s for topic: %s part: 0",
+            offset,
+            metadata,
+            self.topic,
+        )
         req = OffsetCommitRequest(self.topic, 0, offset, -1, metadata)
         # We have to retry, since the client doesn't, and Kafka will
         # create the topic on the fly, but the first request will fail
         [resp] = yield self.retry_while_broker_errors(self.client.send_offset_commit_request, c_group, [req])
-        self.assertEqual(getattr(resp, 'error', -1), 0)
+        self.assertEqual(getattr(resp, "error", -1), 0)
 
         req = OffsetFetchRequest(self.topic, 0)
         [resp] = yield self.client.send_offset_fetch_request(c_group, [req])

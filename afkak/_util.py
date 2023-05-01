@@ -19,19 +19,21 @@ import struct
 
 from .common import BufferUnderflowError
 
-_NULL_SHORT_STRING = struct.pack('>h', -1)
+_NULL_SHORT_STRING = struct.pack(">h", -1)
 
 
 def _buffer_underflow(what, buf, offset, size):
-    return BufferUnderflowError((
-        "Not enough data to read {what} at offset {offset:,d}: {size:,d} bytes required,"
-        " but {available:,d} available."
-    ).format(
-        what=what,
-        offset=offset,
-        size=size,
-        available=len(buf) - offset,
-    ))
+    return BufferUnderflowError(
+        (
+            "Not enough data to read {what} at offset {offset:,d}: {size:,d} bytes required,"
+            " but {available:,d} available."
+        ).format(
+            what=what,
+            offset=offset,
+            size=size,
+            available=len(buf) - offset,
+        )
+    )
 
 
 def _coerce_topic(topic):
@@ -43,14 +45,13 @@ def _coerce_topic(topic):
     :raises TypeError: when the topic is not :class:`unicode` or :class:`str`
     """
     if not isinstance(topic, str):
-        raise TypeError('topic={!r} must be text'.format(topic))
+        raise TypeError("topic={!r} must be text".format(topic))
     if not isinstance(topic, str):
-        topic = topic.decode('ascii')
+        topic = topic.decode("ascii")
     if len(topic) < 1:
-        raise ValueError('invalid empty topic name')
+        raise ValueError("invalid empty topic name")
     if len(topic) > 249:
-        raise ValueError('topic={!r} name is too long: {} > 249'.format(
-            topic, len(topic)))
+        raise ValueError("topic={!r} name is too long: {} > 249".format(topic, len(topic)))
     return topic
 
 
@@ -63,9 +64,9 @@ def _coerce_consumer_group(consumer_group):
         or :class:`str`
     """
     if not isinstance(consumer_group, (str, bytes)):
-        raise TypeError('consumer_group={!r} must be text'.format(consumer_group))
+        raise TypeError("consumer_group={!r} must be text".format(consumer_group))
     if not isinstance(consumer_group, str):
-        consumer_group = consumer_group.decode('utf-8')
+        consumer_group = consumer_group.decode("utf-8")
     return consumer_group
 
 
@@ -76,18 +77,17 @@ def _coerce_client_id(client_id):
 
     :param client_id: :class:`bytes` or :class:`str` instance
     """
-    if isinstance(client_id, type(u'')):
-        client_id = client_id.encode('utf-8')
+    if isinstance(client_id, type("")):
+        client_id = client_id.encode("utf-8")
     if not isinstance(client_id, bytes):
-        raise TypeError('{!r} is not a valid consumer group (must be'
-                        ' str or bytes)'.format(client_id))
+        raise TypeError("{!r} is not a valid consumer group (must be" " str or bytes)".format(client_id))
     return client_id
 
 
 def write_int_string(s):
     if s is None:
-        return struct.pack('>i', -1)
-    return struct.pack('>i', len(s)) + s
+        return struct.pack(">i", -1)
+    return struct.pack(">i", len(s)) + s
 
 
 def write_short_ascii(s):
@@ -104,8 +104,8 @@ def write_short_ascii(s):
     if s is None:
         return _NULL_SHORT_STRING
     if not isinstance(s, str):
-        raise TypeError('{!r} is not text'.format(s))
-    return write_short_bytes(s.encode('ascii'))
+        raise TypeError("{!r} is not text".format(s))
+    return write_short_bytes(s.encode("ascii"))
 
 
 def write_short_text(s):
@@ -123,8 +123,8 @@ def write_short_text(s):
     if s is None:
         return _NULL_SHORT_STRING
     if not isinstance(s, str):
-        raise TypeError('{!r} is not text'.format(s))
-    return write_short_bytes(s.encode('utf-8'))
+        raise TypeError("{!r} is not text".format(s))
+    return write_short_bytes(s.encode("utf-8"))
 
 
 def write_short_bytes(b):
@@ -143,52 +143,52 @@ def write_short_bytes(b):
     if b is None:
         return _NULL_SHORT_STRING
     if not isinstance(b, bytes):
-        raise TypeError('{!r} is not bytes'.format(b))
+        raise TypeError("{!r} is not bytes".format(b))
     elif len(b) > 32767:
         raise struct.error(len(b))
     else:
-        return struct.pack('>h', len(b)) + b
+        return struct.pack(">h", len(b)) + b
 
 
 def read_short_bytes(data, cur):
     if len(data) < cur + 2:
-        raise _buffer_underflow('short string length', data, cur, 2)
+        raise _buffer_underflow("short string length", data, cur, 2)
 
-    (strlen,) = struct.unpack('>h', data[cur:cur + 2])
+    (strlen,) = struct.unpack(">h", data[cur : cur + 2])
     if strlen == -1:
         return None, cur + 2
 
     cur += 2
     if len(data) < cur + strlen:
-        raise _buffer_underflow('short string', data, cur, strlen)
+        raise _buffer_underflow("short string", data, cur, strlen)
 
-    out = data[cur:cur + strlen]
+    out = data[cur : cur + strlen]
     return out, cur + strlen
 
 
 def read_short_ascii(data, cur):
     b, cur = read_short_bytes(data, cur)
-    return b.decode('ascii'), cur
+    return b.decode("ascii"), cur
 
 
 def read_short_text(data, cur):
     b, cur = read_short_bytes(data, cur)
-    return b.decode('utf-8'), cur
+    return b.decode("utf-8"), cur
 
 
 def read_int_string(data, cur):
     if len(data) < cur + 4:
-        raise _buffer_underflow('long string length', data, cur, 4)
+        raise _buffer_underflow("long string length", data, cur, 4)
 
-    (strlen,) = struct.unpack('>i', data[cur:cur + 4])
+    (strlen,) = struct.unpack(">i", data[cur : cur + 4])
     if strlen == -1:
         return None, cur + 4
 
     cur += 4
     if len(data) < cur + strlen:
-        raise _buffer_underflow('long string', data, cur, strlen)
+        raise _buffer_underflow("long string", data, cur, strlen)
 
-    out = data[cur:cur + strlen]
+    out = data[cur : cur + strlen]
     return out, cur + strlen
 
 
@@ -197,7 +197,7 @@ def relative_unpack(fmt, data, cur):
     if len(data) < cur + size:
         raise _buffer_underflow(fmt, data, cur, size)
 
-    out = struct.unpack(fmt, data[cur:cur + size])
+    out = struct.unpack(fmt, data[cur : cur + size])
     return out, cur + size
 
 

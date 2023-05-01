@@ -18,17 +18,15 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from unittest.mock import Mock
 
-import attr
-from twisted.internet.defer import (
-    Deferred, DeferredQueue, inlineCallbacks, returnValue,
-)
-from twisted.trial import unittest
-
 from afkak import ConsumerGroup, KafkaClient, create_message
 from afkak._group import Coordinator
 from afkak.common import ProduceRequest
 from afkak.test.int.intutil import IntegrationMixin, kafka_versions
 from afkak.test.testutil import async_delay
+
+import attr
+from twisted.internet.defer import Deferred, DeferredQueue, inlineCallbacks, returnValue
+from twisted.trial import unittest
 
 log = logging.getLogger(__name__)
 
@@ -46,8 +44,7 @@ class Deadline(object):
         """
         elapsed = datetime.utcnow() - self.start
         if elapsed > self.timeout:
-            raise AssertionError("Deadline exceeded: {} > {}".format(
-                self.elapsed, self.timeout))
+            raise AssertionError("Deadline exceeded: {} > {}".format(self.elapsed, self.timeout))
 
 
 def assert_assignments(topic, partitions, members):
@@ -82,42 +79,38 @@ def assert_assignments(topic, partitions, members):
         max_count = min_count
 
     summary = [
-        'topic {!r} has {} partitions'.format(topic, partitions),
-        'members should own at least {} partitions, no more than {}'.format(min_count, max_count),
+        "topic {!r} has {} partitions".format(topic, partitions),
+        "members should own at least {} partitions, no more than {}".format(min_count, max_count),
     ]
     failures = []
     partition_to_members = defaultdict(list)
 
     for member in members:
         if topic not in member.topics:
-            raise ValueError("ConsumerGroup {!r} isn't consuming topic {!r}".format(
-                member, topic))
+            raise ValueError("ConsumerGroup {!r} isn't consuming topic {!r}".format(member, topic))
 
         a = set(c.partition for c in member.consumers.get(topic, []))
-        summary.append('member {} owns partitions {}'.format(
-            member, ' '.join(str(p) for p in sorted(a))))
+        summary.append("member {} owns partitions {}".format(member, " ".join(str(p) for p in sorted(a))))
 
         if len(a) < min_count:
-            failures.append('too few partitions: {}'.format(member))
+            failures.append("too few partitions: {}".format(member))
         elif len(a) > max_count:
-            failures.append('too many partitions: {}'.format(member))
+            failures.append("too many partitions: {}".format(member))
 
         for partition in a:
             partition_to_members[partition].append(repr(member))
 
     for partition, assignees in partition_to_members.items():
         if len(assignees) > 1:
-            failures.append('partition {} assignment collision: {}'.format(
-                partition, ' '.join(assignees)))
+            failures.append("partition {} assignment collision: {}".format(partition, " ".join(assignees)))
 
     if len(partition_to_members) != partitions:
-        failures.append('{} partitions assigned, but expected {}'.format(
-            len(partition_to_members), partitions))
+        failures.append("{} partitions assigned, but expected {}".format(len(partition_to_members), partitions))
 
     if failures:
-        summary.append('\nFailed validation:')
+        summary.append("\nFailed validation:")
         summary.extend(failures)
-    message = '\n'.join(summary)
+    message = "\n".join(summary)
     log.debug(message)
     if failures:
         raise AssertionError(message)
@@ -158,8 +151,8 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
 
     def when_called(self, object, method):
         """
-            returns a Deferred that will be called back after the
-            next time the method gets called
+        returns a Deferred that will be called back after the
+        next time the method gets called
         """
         de = Deferred()
         original = getattr(object, method)
@@ -169,6 +162,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
             if not de.called:
                 de.callback(None)
             return ret
+
         setattr(object, method, Mock(side_effect=side_effect))
         return de
 
@@ -177,7 +171,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
     def test_single_coordinator_join(self):
         coord = Coordinator(self.client, self.id(), ["test-topic"])
 
-        de = self.when_called(coord, 'on_join_complete')
+        de = self.when_called(coord, "on_join_complete")
         coord.start()
         yield de
         yield coord.stop()
@@ -185,20 +179,20 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
     @kafka_versions("all")
     @inlineCallbacks
     def test_three_coordinator_join(self):
-        self.client2 = KafkaClient(
-            self.harness.bootstrap_hosts,
-            clientId=self.topic + '2')
+        self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
         self.addCleanup(self.client2.close)
 
-        self.client3 = KafkaClient(
-            self.harness.bootstrap_hosts,
-            clientId=self.topic + '3')
+        self.client3 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "3")
         self.addCleanup(self.client3.close)
         coords = [
             Coordinator(
-                client, self.id(), topics=["test-topic"],
-                retry_backoff_ms=100, heartbeat_interval_ms=100,
-                fatal_backoff_ms=1000)
+                client,
+                self.id(),
+                topics=["test-topic"],
+                retry_backoff_ms=100,
+                heartbeat_interval_ms=100,
+                fatal_backoff_ms=1000,
+            )
             for client in [self.client, self.client2, self.client3]
         ]
         coords[0].on_join_complete = lambda *args: a_joined.callback(*args)
@@ -251,10 +245,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         self.assertTrue(len(b_assignment["test-topic"]) == 2, b_assignment)
         self.assertTrue(len(c_assignment["test-topic"]) == 2, c_assignment)
         self.assertEqual(
-            set(
-                a_assignment["test-topic"] +
-                b_assignment["test-topic"] +
-                c_assignment["test-topic"]),
+            set(a_assignment["test-topic"] + b_assignment["test-topic"] + c_assignment["test-topic"]),
             set(range(6)),
         )
         # and remove one
@@ -280,16 +271,19 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         record_stream = DeferredQueue(backlog=1)
 
         def processor(consumer, records):
-            log.debug('processor(%r, %r)', consumer, records)
+            log.debug("processor(%r, %r)", consumer, records)
             record_stream.put(records)
 
         coord = ConsumerGroup(
-            self.client, self.id(),
-            topics=[self.topic], processor=processor,
-            retry_backoff_ms=100, heartbeat_interval_ms=1000,
+            self.client,
+            self.id(),
+            topics=[self.topic],
+            processor=processor,
+            retry_backoff_ms=100,
+            heartbeat_interval_ms=1000,
             fatal_backoff_ms=3000,
         )
-        join_de = self.when_called(coord, 'on_join_complete')
+        join_de = self.when_called(coord, "on_join_complete")
         coord.start()
         self.addCleanup(coord.stop)
         yield join_de
@@ -312,10 +306,8 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         When a second member joins the consumer group it triggers a rebalance.
         After that completes some partitions are distributed to each member.
         """
-        group_id = 'group_for_two'
-        self.client2 = KafkaClient(
-            self.harness.bootstrap_hosts,
-            clientId=self.topic + '2')
+        group_id = "group_for_two"
+        self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
         self.addCleanup(self.client2.close)
 
         record_stream = DeferredQueue(backlog=1)
@@ -325,12 +317,15 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
             record_stream.put(records)
 
         coord = ConsumerGroup(
-            self.client, group_id,
-            topics=[self.topic], processor=processor,
-            retry_backoff_ms=100, heartbeat_interval_ms=1000,
+            self.client,
+            group_id,
+            topics=[self.topic],
+            processor=processor,
+            retry_backoff_ms=100,
+            heartbeat_interval_ms=1000,
             fatal_backoff_ms=3000,
         )
-        de = self.when_called(coord, 'on_join_complete')
+        de = self.when_called(coord, "on_join_complete")
         coord_start_d = coord.start()
         self.addCleanup(coord.stop)
 
@@ -348,13 +343,16 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
             self.assertEqual(msgs[0].message.value, values[0])
 
         coord2 = ConsumerGroup(
-            self.client2, group_id,
-            topics=[self.topic], processor=processor,
-            retry_backoff_ms=100, heartbeat_interval_ms=1000,
+            self.client2,
+            group_id,
+            topics=[self.topic],
+            processor=processor,
+            retry_backoff_ms=100,
+            heartbeat_interval_ms=1000,
             fatal_backoff_ms=3000,
         )
-        de = self.when_called(coord, 'on_join_complete')
-        de2 = self.when_called(coord2, 'on_join_complete')
+        de = self.when_called(coord, "on_join_complete")
+        de2 = self.when_called(coord2, "on_join_complete")
         coord2_start_d = coord2.start()
         self.addCleanup(coord2.stop)
 
@@ -370,7 +368,8 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         self.assertEqual(len(coord2.consumers[self.topic]), 3)
         self.assertNotEqual(
             coord.consumers[self.topic][0].partition,
-            coord2.consumers[self.topic][0].partition)
+            coord2.consumers[self.topic][0].partition,
+        )
 
         # after the cluster has re-formed, send some more messages
         # and check that we get them too (and don't get the old messages again)
@@ -384,21 +383,24 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
     @inlineCallbacks
     def test_broker_restart(self):
         """
-            restart the kafka broker and verify that the group rejoins
+        restart the kafka broker and verify that the group rejoins
         """
         record_stream = DeferredQueue(backlog=1)
 
         def processor(consumer, records):
-            log.debug('processor(%r, %r)', consumer, records)
+            log.debug("processor(%r, %r)", consumer, records)
             record_stream.put(records)
 
         coord = ConsumerGroup(
-            self.client, self.id(),
-            topics=[self.topic], processor=processor,
-            retry_backoff_ms=100, heartbeat_interval_ms=1000,
+            self.client,
+            self.id(),
+            topics=[self.topic],
+            processor=processor,
+            retry_backoff_ms=100,
+            heartbeat_interval_ms=1000,
             fatal_backoff_ms=2000,
         )
-        join_de = self.when_called(coord, 'on_join_complete')
+        join_de = self.when_called(coord, "on_join_complete")
         coord.start()
         self.addCleanup(coord.stop)
 
@@ -409,9 +411,9 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         self.assertEqual(coord.consumers[self.topic][0].partition, 0)
 
         # restart the broker and see that we re-join and still work
-        leave_de = self.when_called(coord, 'on_group_leave')
-        prepare_de = self.when_called(coord, 'on_join_prepare')
-        join_de = self.when_called(coord, 'on_join_complete')
+        leave_de = self.when_called(coord, "on_group_leave")
+        prepare_de = self.when_called(coord, "on_join_prepare")
+        join_de = self.when_called(coord, "on_join_complete")
         self.harness.brokers[0].stop()
         yield leave_de
         self.assertEqual(len(coord.consumers), 0)
@@ -431,25 +433,27 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
     @inlineCallbacks
     def test_consumer_rejoin(self):
         """
-            trigger a rejoin via consumer commit failure
+        trigger a rejoin via consumer commit failure
         """
-        group = 'rejoin_group'
-        self.client2 = KafkaClient(
-            self.harness.bootstrap_hosts,
-            clientId=self.topic + '2')
+        group = "rejoin_group"
+        self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
         self.addCleanup(self.client2.close)
 
         record_stream = DeferredQueue(backlog=1)
 
         def processor(consumer, records):
-            log.debug('processor(%r, %r)', consumer, records)
+            log.debug("processor(%r, %r)", consumer, records)
             record_stream.put(records)
 
         coord = ConsumerGroup(
-            self.client, group,
-            topics=[self.topic], processor=processor,
-            session_timeout_ms=6000, retry_backoff_ms=100,
-            heartbeat_interval_ms=1000, fatal_backoff_ms=3000,
+            self.client,
+            group,
+            topics=[self.topic],
+            processor=processor,
+            session_timeout_ms=6000,
+            retry_backoff_ms=100,
+            heartbeat_interval_ms=1000,
+            fatal_backoff_ms=3000,
             consumer_kwargs=dict(auto_commit_every_ms=1000),
         )
         coord_start_d = coord.start()
@@ -469,10 +473,14 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
                 yield async_delay()
 
         coord2 = ConsumerGroup(
-            self.client2, group,
-            topics=[self.topic], processor=processor,
-            session_timeout_ms=6000, retry_backoff_ms=100,
-            heartbeat_interval_ms=1000, fatal_backoff_ms=3000,
+            self.client2,
+            group,
+            topics=[self.topic],
+            processor=processor,
+            session_timeout_ms=6000,
+            retry_backoff_ms=100,
+            heartbeat_interval_ms=1000,
+            fatal_backoff_ms=3000,
             consumer_kwargs=dict(auto_commit_every_ms=1000),
         )
         coord2_start_d = coord2.start()
@@ -502,7 +510,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         # delivery.
         pending_sentinels = {}
         for part in range(self.num_partitions):
-            [value] = yield self.send_messages(part, ['sentinel'])
+            [value] = yield self.send_messages(part, ["sentinel"])
             pending_sentinels[part] = value
         while pending_sentinels:
             [message] = yield record_stream.get()
@@ -515,7 +523,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         for part in range(self.num_partitions):
             yield async_delay()
             [value] = yield self.send_messages(part, [part])
-            log.debug('waiting for messages from partition %d', part)
+            log.debug("waiting for messages from partition %d", part)
             [message] = yield record_stream.get()
             self.assertEqual(message.partition, part)
             self.assertEqual(message.message.value, value)

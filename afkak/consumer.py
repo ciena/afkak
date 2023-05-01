@@ -18,21 +18,33 @@ import logging
 import sys
 from numbers import Integral
 
-from twisted.internet.defer import (
-    CancelledError, Deferred, fail, inlineCallbacks, maybeDeferred, succeed,
-)
-from twisted.internet.task import LoopingCall
-from twisted.python.failure import Failure
-
 from afkak._util import _coerce_consumer_group, _coerce_topic
 from afkak.common import (
-    OFFSET_COMMITTED, OFFSET_EARLIEST, OFFSET_LATEST, OFFSET_NOT_COMMITTED,
-    TIMESTAMP_INVALID, ConsumerFetchSizeTooSmall, FetchRequest,
-    IllegalGeneration, InvalidConsumerGroupError, InvalidGroupId, KafkaError,
-    OffsetCommitRequest, OffsetFetchRequest, OffsetOutOfRangeError,
-    OffsetRequest, OperationInProgress, RestartError, RestopError,
-    SourcedMessage, UnknownMemberId,
+    OFFSET_COMMITTED,
+    OFFSET_EARLIEST,
+    OFFSET_LATEST,
+    OFFSET_NOT_COMMITTED,
+    TIMESTAMP_INVALID,
+    ConsumerFetchSizeTooSmall,
+    FetchRequest,
+    IllegalGeneration,
+    InvalidConsumerGroupError,
+    InvalidGroupId,
+    KafkaError,
+    OffsetCommitRequest,
+    OffsetFetchRequest,
+    OffsetOutOfRangeError,
+    OffsetRequest,
+    OperationInProgress,
+    RestartError,
+    RestopError,
+    SourcedMessage,
+    UnknownMemberId,
 )
+
+from twisted.internet.defer import CancelledError, Deferred, fail, inlineCallbacks, maybeDeferred, succeed
+from twisted.internet.task import LoopingCall
+from twisted.python.failure import Failure
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -144,21 +156,28 @@ class Consumer(object):
         offset that isn't valid. This may mean that the requested offset no
         longer exists, e.g. if it was removed due to age.
     """
-    def __init__(self, client, topic, partition, processor,
-                 consumer_group=None,
-                 commit_metadata=None,
-                 auto_commit_every_n=None,
-                 auto_commit_every_ms=None,
-                 fetch_size_bytes=FETCH_MIN_BYTES,
-                 fetch_max_wait_time=FETCH_MAX_WAIT_TIME,
-                 buffer_size=FETCH_BUFFER_SIZE_BYTES,
-                 max_buffer_size=None,
-                 request_retry_init_delay=REQUEST_RETRY_MIN_DELAY,
-                 request_retry_max_delay=REQUEST_RETRY_MAX_DELAY,
-                 request_retry_max_attempts=0,
-                 auto_offset_reset=None,
-                 commit_consumer_id='',
-                 commit_generation_id=-1):
+
+    def __init__(
+        self,
+        client,
+        topic,
+        partition,
+        processor,
+        consumer_group=None,
+        commit_metadata=None,
+        auto_commit_every_n=None,
+        auto_commit_every_ms=None,
+        fetch_size_bytes=FETCH_MIN_BYTES,
+        fetch_max_wait_time=FETCH_MAX_WAIT_TIME,
+        buffer_size=FETCH_BUFFER_SIZE_BYTES,
+        max_buffer_size=None,
+        request_retry_init_delay=REQUEST_RETRY_MIN_DELAY,
+        request_retry_max_delay=REQUEST_RETRY_MAX_DELAY,
+        request_retry_max_attempts=0,
+        auto_offset_reset=None,
+        commit_consumer_id="",
+        commit_generation_id=-1,
+    ):
         # Store away parameters
         self.client = client  # KafkaClient
         self.topic = topic = _coerce_topic(topic)
@@ -170,8 +189,7 @@ class Consumer(object):
         self.consumer_group = consumer_group
         self.commit_metadata = commit_metadata
         if commit_metadata is not None and not isinstance(commit_metadata, bytes):
-            raise TypeError('commit_metadata={!r} should be bytes'.format(
-                commit_metadata))
+            raise TypeError("commit_metadata={!r} should be bytes".format(commit_metadata))
         # commit related parameters when using a coordinated consumer group
         self.commit_consumer_id = commit_consumer_id
         self.commit_generation_id = commit_generation_id
@@ -184,20 +202,16 @@ class Consumer(object):
             if auto_commit_every_ms is None:
                 auto_commit_every_ms = AUTO_COMMIT_INTERVAL
             if not isinstance(auto_commit_every_n, Integral):
-                raise ValueError('auto_commit_every_n parameter must be '
-                                 'subtype of Integral')
+                raise ValueError("auto_commit_every_n parameter must be " "subtype of Integral")
             if not isinstance(auto_commit_every_ms, Integral):
-                raise ValueError('auto_commit_every_ms parameter must be '
-                                 'subtype of Integral')
+                raise ValueError("auto_commit_every_ms parameter must be " "subtype of Integral")
             if auto_commit_every_ms < 0 or auto_commit_every_n < 0:
-                raise ValueError('auto_commit_every_ms and auto_commit_every_n'
-                                 ' must be non-negative')
+                raise ValueError("auto_commit_every_ms and auto_commit_every_n" " must be non-negative")
             self.auto_commit_every_n = auto_commit_every_n
             self.auto_commit_every_s = float(auto_commit_every_ms) / 1000
         else:
             if auto_commit_every_ms or auto_commit_every_n:
-                raise ValueError('An auto_commit_every_x argument set without '
-                                 'specifying consumer_group')
+                raise ValueError("An auto_commit_every_x argument set without " "specifying consumer_group")
         # Fetch related instance variables
         self.fetch_min_bytes = fetch_size_bytes
         self.fetch_max_wait_time = int(fetch_max_wait_time)
@@ -208,14 +222,11 @@ class Consumer(object):
         self.retry_init_delay = float(request_retry_init_delay)
         self.retry_max_delay = float(request_retry_max_delay)
         self.request_retry_max_attempts = int(request_retry_max_attempts)
-        if (not isinstance(request_retry_max_attempts, Integral) or
-                request_retry_max_attempts < 0):
-            raise ValueError(
-                'request_retry_max_attempts must be non-negative integer')
+        if not isinstance(request_retry_max_attempts, Integral) or request_retry_max_attempts < 0:
+            raise ValueError("request_retry_max_attempts must be non-negative integer")
         self._fetch_attempt_count = 1
         if auto_offset_reset not in [None, OFFSET_EARLIEST, OFFSET_LATEST]:
-            raise ValueError(
-                "auto_offset_reset must be in 'None', 'OFFSET_EARLIEST', 'OFFSET_LATEST'")
+            raise ValueError("auto_offset_reset must be in 'None', 'OFFSET_EARLIEST', 'OFFSET_LATEST'")
         self.auto_offset_reset = auto_offset_reset
         # # Internal state tracking attributes
         self._fetch_offset = None  # We don't know at what offset to fetch yet
@@ -235,18 +246,21 @@ class Consumer(object):
         self._commit_call = None  # IDelayedCall for delayed commit retries
         self._msg_block_d = None  # deferred for each block of messages
         self._processor_d = None  # deferred for a result from processor
-        self._state = 'initialized'  # Keep track of state for debugging
+        self._state = "initialized"  # Keep track of state for debugging
         # Check parameters for sanity
         if max_buffer_size is not None and buffer_size > max_buffer_size:
-            raise ValueError("buffer_size (%d) is greater than "
-                             "max_buffer_size (%d)" %
-                             (buffer_size, max_buffer_size))
+            raise ValueError(
+                "buffer_size (%d) is greater than " "max_buffer_size (%d)" % (buffer_size, max_buffer_size)
+            )
         if not isinstance(self.partition, Integral):
-            raise ValueError('partition parameter must be subtype of Integral')
+            raise ValueError("partition parameter must be subtype of Integral")
 
     def __repr__(self):
-        return '<{} {}/{} {}>'.format(
-            self.__class__.__name__, self.topic, self.partition, self._state,
+        return "<{} {}/{} {}>".format(
+            self.__class__.__name__,
+            self.topic,
+            self.partition,
+            self._state,
         )
         # TODO Add commit_consumer_id if applicable
 
@@ -306,7 +320,7 @@ class Consumer(object):
             raise RestartError("Start called on already-started consumer")
 
         # Keep track of state for debugging
-        self._state = 'started'
+        self._state = "started"
 
         # Create and return a deferred for alerting on errors/stoppage
         start_d = self._start_d = Deferred()
@@ -319,10 +333,8 @@ class Consumer(object):
         if self.consumer_group and self.auto_commit_every_s:
             self._commit_looper = LoopingCall(self._auto_commit)
             self._commit_looper.clock = self.client.reactor
-            self._commit_looper_d = self._commit_looper.start(
-                self.auto_commit_every_s, now=False)
-            self._commit_looper_d.addCallbacks(self._commit_timer_stopped,
-                                               self._commit_timer_failed)
+            self._commit_looper_d = self._commit_looper.start(self.auto_commit_every_s, now=False)
+            self._commit_looper_d.addCallbacks(self._commit_timer_stopped, self._commit_timer_failed)
         return start_d
 
     def shutdown(self):
@@ -335,6 +347,7 @@ class Consumer(object):
             :attr:`last_processed_offset`. It may fail if a commit fails or
             with :exc:`RestopError` if the consumer is not running.
         """
+
         def _handle_shutdown_commit_success(result):
             """Handle the result of the commit attempted by shutdown"""
             self._shutdown_d, d = None, self._shutdown_d
@@ -359,22 +372,19 @@ class Consumer(object):
                 return _handle_shutdown_commit_success(None)
 
             # Need to commit prior to stopping
-            self.commit().addCallbacks(_handle_shutdown_commit_success,
-                                       _handle_shutdown_commit_failure)
+            self.commit().addCallbacks(_handle_shutdown_commit_success, _handle_shutdown_commit_failure)
 
         # If we're not running, return an failure
         if self._start_d is None:
-            return fail(Failure(
-                RestopError("Shutdown called on non-running consumer")))
+            return fail(Failure(RestopError("Shutdown called on non-running consumer")))
         # If we're called multiple times, return a failure
         if self._shutdown_d:
-            return fail(Failure(
-                RestopError("Shutdown called more than once.")))
+            return fail(Failure(RestopError("Shutdown called more than once.")))
         # Set our _shuttingdown flag, so our _process_message routine will stop
         # feeding new messages to the processor, and fetches won't be retried
         self._shuttingdown = True
         # Keep track of state for debugging
-        self._state = 'shutting down'
+        self._state = "shutting down"
         # TODO: This was added as part of coordinated consumer support,
         # but it belongs in the constructor if it is even necessary.
         # don't let commit requests retry forever and prevent shutdown
@@ -409,7 +419,7 @@ class Consumer(object):
 
         self._stopping = True
         # Keep track of state for debugging
-        self._state = 'stopping'
+        self._state = "stopping"
         # Are we waiting for a request to come back?
         if self._request_d:
             self._request_d.cancel()
@@ -441,7 +451,7 @@ class Consumer(object):
         # Done stopping
         self._stopping = False
         # Keep track of state for debugging
-        self._state = 'stopped'
+        self._state = "stopped"
 
         # Clear and possibly callback our start() Deferred
         self._start_d, d = None, self._start_d
@@ -482,11 +492,9 @@ class Consumer(object):
         """
         # Can't commit without a consumer_group
         if not self.consumer_group:
-            return fail(Failure(InvalidConsumerGroupError(
-                "Bad Group_id:{0!r}".format(self.consumer_group))))
+            return fail(Failure(InvalidConsumerGroupError("Bad Group_id:{0!r}".format(self.consumer_group))))
         # short circuit if we are 'up to date', or haven't processed anything
-        if ((self._last_processed_offset is None) or
-                (self._last_processed_offset == self._last_committed_offset)):
+        if (self._last_processed_offset is None) or (self._last_processed_offset == self._last_committed_offset):
             return succeed(self._last_committed_offset)
 
         # If we're currently processing a commit we return a failure
@@ -522,18 +530,24 @@ class Consumer(object):
     def _auto_commit(self, by_count=False):
         """Check if we should start a new commit operation and commit"""
         # Check if we are even supposed to do any auto-committing
-        if (self._stopping or self._shuttingdown or (not self._start_d) or
-                (self._last_processed_offset is None) or
-                (not self.consumer_group) or
-                (by_count and not self.auto_commit_every_n)):
+        if (
+            self._stopping
+            or self._shuttingdown
+            or (not self._start_d)
+            or (self._last_processed_offset is None)
+            or (not self.consumer_group)
+            or (by_count and not self.auto_commit_every_n)
+        ):
             return
 
         # If we're auto_committing because the timer expired, or by count and
         # we don't have a record of our last_committed_offset, or we've
         # processed enough messages since our last commit, then try to commit
-        if (not by_count or self._last_committed_offset is None or
-            (self._last_processed_offset - self._last_committed_offset
-             ) >= self.auto_commit_every_n):
+        if (
+            not by_count
+            or self._last_committed_offset is None
+            or (self._last_processed_offset - self._last_committed_offset) >= self.auto_commit_every_n
+        ):
             if not self._commit_ds:
                 commit_d = self.commit()
                 commit_d.addErrback(self._handle_auto_commit_error)
@@ -561,12 +575,10 @@ class Consumer(object):
         if self._retry_call is None:
             if after is None:
                 after = self.retry_delay
-                self.retry_delay = min(self.retry_delay * REQUEST_RETRY_FACTOR,
-                                       self.retry_max_delay)
+                self.retry_delay = min(self.retry_delay * REQUEST_RETRY_FACTOR, self.retry_max_delay)
 
             self._fetch_attempt_count += 1
-            self._retry_call = self.client.reactor.callLater(
-                after, self._do_fetch)
+            self._retry_call = self.client.reactor.callLater(after, self._do_fetch)
 
     def _handle_offset_response(self, responses):
         """
@@ -584,7 +596,7 @@ class Consumer(object):
         self._fetch_attempt_count = 1
 
         [response] = responses
-        if hasattr(response, 'offsets'):
+        if hasattr(response, "offsets"):
             # It's a response to an OffsetRequest
             self._fetch_offset = response.offsets[0]
         else:
@@ -616,11 +628,11 @@ class Consumer(object):
             # Not really an error
             return
         # Do we need to abort?
-        if (self.request_retry_max_attempts != 0 and
-                self._fetch_attempt_count >= self.request_retry_max_attempts):
+        if self.request_retry_max_attempts != 0 and self._fetch_attempt_count >= self.request_retry_max_attempts:
             log.debug(
                 "%r: Exhausted attempts: %d fetching offset from kafka",
-                self, self.request_retry_max_attempts,
+                self,
+                self.request_retry_max_attempts,
                 exc_info=(failure.type, failure.value, failure.getTracebackObject()),
             )
             self._start_d.errback(failure)
@@ -628,14 +640,11 @@ class Consumer(object):
         # Decide how to log this failure... If we have retried so many times
         # we're at the retry_max_delay, then we log at warning every other time
         # debug otherwise
-        if (self.retry_delay < self.retry_max_delay or
-                0 == (self._fetch_attempt_count % 2)):
-            log.debug("%r: Failure fetching offset from kafka: %r", self,
-                      failure)
+        if self.retry_delay < self.retry_max_delay or 0 == (self._fetch_attempt_count % 2):
+            log.debug("%r: Failure fetching offset from kafka: %r", self, failure)
         else:
             # We've retried until we hit the max delay, log at warn
-            log.warning("%r: Still failing fetching offset from kafka: %r",
-                        self, failure)
+            log.warning("%r: Still failing fetching offset from kafka: %r", self, failure)
         self._retry_fetch()
 
     def _clear_processor_deferred(self, result):
@@ -643,7 +652,7 @@ class Consumer(object):
         return result
 
     def _update_processed_offset(self, result, offset):
-        log.debug('%s: processor returned %r at offset %d', self, result, offset)
+        log.debug("%s: processor returned %r at offset %d", self, result, offset)
         self._last_processed_offset = offset
         self._auto_commit(by_count=True)
 
@@ -686,17 +695,28 @@ class Consumer(object):
         # Create new OffsetCommitRequest with the latest processed offset
         commit_offset = self._last_processed_offset
         commit_request = OffsetCommitRequest(
-            self.topic, self.partition, commit_offset,
-            TIMESTAMP_INVALID, self.commit_metadata)
-        log.debug("Committing off=%s grp=%s tpc=%s part=%s req=%r",
-                  self._last_processed_offset, self.consumer_group,
-                  self.topic, self.partition, commit_request)
+            self.topic,
+            self.partition,
+            commit_offset,
+            TIMESTAMP_INVALID,
+            self.commit_metadata,
+        )
+        log.debug(
+            "Committing off=%s grp=%s tpc=%s part=%s req=%r",
+            self._last_processed_offset,
+            self.consumer_group,
+            self.topic,
+            self.partition,
+            commit_request,
+        )
 
         # Send the request, add our callbacks
         self._commit_req = d = self.client.send_offset_commit_request(
-            self.consumer_group, [commit_request],
+            self.consumer_group,
+            [commit_request],
             group_generation_id=self.commit_generation_id,
-            consumer_id=self.commit_consumer_id)
+            consumer_id=self.commit_consumer_id,
+        )
 
         d.addBoth(self._clear_commit_req)
         d.addCallbacks(
@@ -707,7 +727,7 @@ class Consumer(object):
         )
 
     def _handle_commit_error(self, failure, commit_offset, retry_delay, attempt):
-        """ Retry the commit request, depending on failure type
+        """Retry the commit request, depending on failure type
 
         Depending on the type of the failure, we retry the commit request
         with the latest processed offset, or callback/errback self._commit_ds
@@ -720,24 +740,31 @@ class Consumer(object):
         # Check that the failure type is a Kafka error...this could maybe be
         # a tighter check to determine whether a retry will succeed...
         if not failure.check(KafkaError):
-            log.error("Unhandleable failure during commit attempt: %r\n\t%r",
-                      failure, failure.getBriefTraceback())
+            log.error(
+                "Unhandleable failure during commit attempt: %r\n\t%r",
+                failure,
+                failure.getBriefTraceback(),
+            )
             return self._deliver_commit_result(failure)
 
         # the server may reject our commit because we have lost sync with the group
         if failure.check(IllegalGeneration, InvalidGroupId, UnknownMemberId):
-            log.error("Unretriable failure during commit attempt: %r\n\t%r",
-                      failure, failure.getBriefTraceback())
+            log.error(
+                "Unretriable failure during commit attempt: %r\n\t%r",
+                failure,
+                failure.getBriefTraceback(),
+            )
             # we need to notify the coordinator here
             self._deliver_commit_result(failure)
             return
 
         # Do we need to abort?
-        if (self.request_retry_max_attempts != 0 and
-                attempt >= self.request_retry_max_attempts):
+        if self.request_retry_max_attempts != 0 and attempt >= self.request_retry_max_attempts:
             log.debug(
                 "%r: Failed to commit offset %s %d times: out of retries",
-                self, commit_offset, self.request_retry_max_attempts,
+                self,
+                commit_offset,
+                self.request_retry_max_attempts,
                 exc_info=(failure.type, failure.value, failure.getTracebackObject()),
             )
             return self._deliver_commit_result(failure)
@@ -749,20 +776,25 @@ class Consumer(object):
         if retry_delay < self.retry_max_delay or 0 == (attempt % 2):
             log.debug(
                 "%r: Failed to commit offset %s (will retry in %.2f seconds)",
-                self, commit_offset, next_retry_delay,
+                self,
+                commit_offset,
+                next_retry_delay,
                 exc_info=(failure.type, failure.value, failure.getTracebackObject()),
             )
         else:
             # We've retried until we hit the max delay, log alternately at warn
             log.warning(
                 "%r: Failed to commit offset %s (will retry in %.2f seconds)",
-                self, commit_offset, next_retry_delay,
+                self,
+                commit_offset,
+                next_retry_delay,
                 exc_info=(failure.type, failure.value, failure.getTracebackObject()),
             )
 
         # Schedule a delayed call to retry the commit
         self._commit_call = self.client.reactor.callLater(
-            next_retry_delay, self._send_commit_request, next_retry_delay, attempt + 1)
+            next_retry_delay, self._send_commit_request, next_retry_delay, attempt + 1
+        )
 
     def _handle_auto_commit_error(self, failure):
         if self._start_d is not None and not self._start_d.called:
@@ -815,25 +847,24 @@ class Consumer(object):
             # Not really an error
             return
         # Do we need to abort?
-        if (self.request_retry_max_attempts != 0 and
-                self._fetch_attempt_count >= self.request_retry_max_attempts):
+        if self.request_retry_max_attempts != 0 and self._fetch_attempt_count >= self.request_retry_max_attempts:
             log.debug(
                 "%r: Exhausted attempts: %d fetching messages from kafka: %r",
-                self, self.request_retry_max_attempts, failure)
+                self,
+                self.request_retry_max_attempts,
+                failure,
+            )
             self._start_d.errback(failure)
             return
 
         # Decide how to log this failure... If we have retried so many times
         # we're at the retry_max_delay, then we log at warning every other time
         # debug otherwise
-        if (self.retry_delay < self.retry_max_delay or
-                0 == (self._fetch_attempt_count % 2)):
-            log.debug("%r: Failure fetching messages from kafka: %r", self,
-                      failure)
+        if self.retry_delay < self.retry_max_delay or 0 == (self._fetch_attempt_count % 2):
+            log.debug("%r: Failure fetching messages from kafka: %r", self, failure)
         else:
             # We've retried until we hit the max delay, log at warn
-            log.warning("%r: Still failing fetching messages from kafka: %r",
-                        self, failure)
+            log.warning("%r: Still failing fetching messages from kafka: %r", self, failure)
         self._retry_fetch()
 
     def _handle_fetch_response(self, responses):
@@ -854,8 +885,7 @@ class Consumer(object):
         if self._msg_block_d:
             # We are still working through the last block of messages...
             # We have to wait until it's done, then process this response
-            self._msg_block_d.addCallback(
-                lambda _: self._handle_fetch_response(responses))
+            self._msg_block_d.addCallback(lambda _: self._handle_fetch_response(responses))
             return
 
         # No ongoing processing, great, let's get some started.
@@ -868,7 +898,10 @@ class Consumer(object):
                 if resp.partition != self.partition:
                     log.warning(
                         "%r: Got response with partition: %r not our own: %r",
-                        self, resp.partition, self.partition)
+                        self,
+                        resp.partition,
+                        self.partition,
+                    )
                     continue
                 # resp.messages is a KafkaCodec._decode_message_set_iter
                 # Note that 'message' here is really an OffsetAndMessage
@@ -877,16 +910,20 @@ class Consumer(object):
                     # desired offset: can happen due to compressed message sets
                     if message.offset < self._fetch_offset:
                         log.debug(
-                            'Skipping message at offset: %d, because its '
-                            'offset is less that our fetch offset: %d.',
-                            message.offset, self._fetch_offset)
+                            "Skipping message at offset: %d, because its " "offset is less that our fetch offset: %d.",
+                            message.offset,
+                            self._fetch_offset,
+                        )
                         continue
                     # Create a 'SourcedMessage' and add it to the messages list
                     messages.append(
                         SourcedMessage(
                             message=message.message,
-                            offset=message.offset, topic=self.topic,
-                            partition=self.partition))
+                            offset=message.offset,
+                            topic=self.topic,
+                            partition=self.partition,
+                        )
+                    )
                     # Update our notion of from where to fetch.
                     self._fetch_offset = message.offset + 1
         except ConsumerFetchSizeTooSmall:
@@ -899,25 +936,23 @@ class Consumer(object):
             if self.max_buffer_size is None:
                 # No limit, increase until we succeed or fail to alloc RAM
                 self.buffer_size *= factor
-            elif (self.max_buffer_size is not None and
-                    self.buffer_size < self.max_buffer_size):
+            elif self.max_buffer_size is not None and self.buffer_size < self.max_buffer_size:
                 # Limited, but currently below it.
-                self.buffer_size = min(
-                    self.buffer_size * factor, self.max_buffer_size)
+                self.buffer_size = min(self.buffer_size * factor, self.max_buffer_size)
             else:
                 # We failed, and are already at our max. Nothing we can do but
                 # create a Failure and errback() our start() deferred
                 log.error("Max fetch size %d too small", self.max_buffer_size)
                 failure = Failure(
-                    ConsumerFetchSizeTooSmall(
-                        "Max buffer size:%d too small for message",
-                        self.max_buffer_size))
+                    ConsumerFetchSizeTooSmall("Max buffer size:%d too small for message", self.max_buffer_size)
+                )
                 self._start_d.errback(failure)
                 return
 
             log.debug(
-                "Next message larger than fetch size, increasing "
-                "to %d (~2x) and retrying", self.buffer_size)
+                "Next message larger than fetch size, increasing " "to %d (~2x) and retrying",
+                self.buffer_size,
+            )
 
         finally:
             # If we were able to extract any messages, deliver them to the
@@ -1001,38 +1036,31 @@ class Consumer(object):
             self._retry_call = None
 
         # Do we know our offset yet, or do we need to figure it out?
-        if (self._fetch_offset == OFFSET_EARLIEST or
-                self._fetch_offset == OFFSET_LATEST):
+        if self._fetch_offset == OFFSET_EARLIEST or self._fetch_offset == OFFSET_LATEST:
             # We need to fetch the offset for our topic/partition
-            offset_request = OffsetRequest(
-                self.topic, self.partition, self._fetch_offset, 1)
+            offset_request = OffsetRequest(self.topic, self.partition, self._fetch_offset, 1)
             self._request_d = self.client.send_offset_request([offset_request])
-            self._request_d.addCallbacks(
-                self._handle_offset_response, self._handle_offset_error)
+            self._request_d.addCallbacks(self._handle_offset_response, self._handle_offset_error)
         elif self._fetch_offset == OFFSET_COMMITTED:
             # We need to fetch the committed offset for our topic/partition
             # Note we use the same callbacks, as the responses are "close
             # enough" for our needs here
             if not self.consumer_group:
                 # consumer_group must be set for OFFSET_COMMITTED
-                failure = Failure(
-                    InvalidConsumerGroupError("Bad Group_id:{0!r}".format(
-                        self.consumer_group)))
+                failure = Failure(InvalidConsumerGroupError("Bad Group_id:{0!r}".format(self.consumer_group)))
                 self._start_d.errback(failure)
             request = OffsetFetchRequest(self.topic, self.partition)
-            self._request_d = self.client.send_offset_fetch_request(
-                self.consumer_group, [request])
-            self._request_d.addCallbacks(
-                self._handle_offset_response, self._handle_offset_error)
+            self._request_d = self.client.send_offset_fetch_request(self.consumer_group, [request])
+            self._request_d.addCallbacks(self._handle_offset_response, self._handle_offset_error)
         else:
             # Create fetch request payload for our partition
-            request = FetchRequest(
-                self.topic, self.partition, self._fetch_offset,
-                self.buffer_size)
+            request = FetchRequest(self.topic, self.partition, self._fetch_offset, self.buffer_size)
             # Send request and add handlers for the response
             self._request_d = self.client.send_fetch_request(
-                [request], max_wait_time=self.fetch_max_wait_time,
-                min_bytes=self.fetch_min_bytes)
+                [request],
+                max_wait_time=self.fetch_max_wait_time,
+                min_bytes=self.fetch_min_bytes,
+            )
             # We need a temp for this because if the response is already
             # available, _handle_fetch_response() will clear self._request_d
             d = self._request_d
@@ -1047,18 +1075,21 @@ class Consumer(object):
         For now, just log the failure and restart the loop
         """
         log.warning(
-            '_commit_timer_failed: uncaught error %r: %s in _auto_commit',
-            fail, fail.getBriefTraceback())
-        self._commit_looper_d = self._commit_looper.start(
-            self.auto_commit_every_s, now=False)
+            "_commit_timer_failed: uncaught error %r: %s in _auto_commit",
+            fail,
+            fail.getBriefTraceback(),
+        )
+        self._commit_looper_d = self._commit_looper.start(self.auto_commit_every_s, now=False)
 
     def _commit_timer_stopped(self, lCall):
         """We're shutting down, clean up our looping call..."""
         if self._commit_looper is not lCall:
-            log.warning('_commit_timer_stopped with wrong timer:%s not:%s',
-                        lCall, self._commit_looper)
+            log.warning(
+                "_commit_timer_stopped with wrong timer:%s not:%s",
+                lCall,
+                self._commit_looper,
+            )
         else:
-            log.debug('_commit_timer_stopped: %s %s', lCall,
-                      self._commit_looper)
+            log.debug("_commit_timer_stopped: %s %s", lCall, self._commit_looper)
             self._commit_looper = None
             self._commit_looper_d = None

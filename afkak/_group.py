@@ -17,22 +17,32 @@ import collections
 import itertools
 import logging
 
-import attr
-from twisted.internet.defer import (
-    CancelledError, Deferred, DeferredList, inlineCallbacks,
-)
-from twisted.internet.task import LoopingCall
-
 from afkak.common import (
-    OFFSET_COMMITTED, CoordinatorNotAvailable, IllegalGeneration,
-    InconsistentGroupProtocol, InvalidGroupId, KafkaError,
-    NotCoordinatorForConsumerError, RebalanceInProgress, RequestTimedOutError,
-    RestartError, RestopError, UnknownMemberId, _HeartbeatRequest,
-    _JoinGroupRequest, _JoinGroupRequestProtocol, _LeaveGroupRequest,
-    _SyncGroupRequest, _SyncGroupRequestMember,
+    OFFSET_COMMITTED,
+    CoordinatorNotAvailable,
+    IllegalGeneration,
+    InconsistentGroupProtocol,
+    InvalidGroupId,
+    KafkaError,
+    NotCoordinatorForConsumerError,
+    RebalanceInProgress,
+    RequestTimedOutError,
+    RestartError,
+    RestopError,
+    UnknownMemberId,
+    _HeartbeatRequest,
+    _JoinGroupRequest,
+    _JoinGroupRequestProtocol,
+    _LeaveGroupRequest,
+    _SyncGroupRequest,
+    _SyncGroupRequestMember,
 )
 from afkak.consumer import Consumer
 from afkak.kafkacodec import KafkaCodec
+
+import attr
+from twisted.internet.defer import CancelledError, Deferred, DeferredList, inlineCallbacks
+from twisted.internet.task import LoopingCall
 
 log = logging.getLogger(__name__)
 
@@ -83,14 +93,23 @@ class Coordinator(object):
         unexpected kafka errors
         Default: 10000.
     """
-    def __init__(self, client, group_id, topics, session_timeout_ms=30000,
-                 heartbeat_interval_ms=5000, initial_backoff_ms=1000,
-                 retry_backoff_ms=100, fatal_backoff_ms=10000):
+
+    def __init__(
+        self,
+        client,
+        group_id,
+        topics,
+        session_timeout_ms=30000,
+        heartbeat_interval_ms=5000,
+        initial_backoff_ms=1000,
+        retry_backoff_ms=100,
+        fatal_backoff_ms=10000,
+    ):
         self.client = client
         self.group_id = group_id
         self.topics = topics
         if not topics:
-            raise ValueError('topics must be non-empty')
+            raise ValueError("topics must be non-empty")
         self.session_timeout_ms = session_timeout_ms
         self.heartbeat_interval_ms = heartbeat_interval_ms
         self.initial_backoff_ms = initial_backoff_ms
@@ -104,7 +123,7 @@ class Coordinator(object):
         self.protocol = _ConsumerProtocol()
 
         self._start_d = None
-        self._state = '[initialized]'  # Keep track of state for debugging
+        self._state = "[initialized]"  # Keep track of state for debugging
         # do we need to rejoin?
         self._rejoin_needed = True
         # are we shutting down?
@@ -121,30 +140,32 @@ class Coordinator(object):
         self._heartbeat_request_d = None
 
     def __repr__(self):
-        return '<{}.{} group={} member={} topics={} {}>'.format(
-            __name__, self.__class__.__name__, self.group_id, self.member_id,
-            self.topics, self._state,
+        return "<{}.{} group={} member={} topics={} {}>".format(
+            __name__,
+            self.__class__.__name__,
+            self.group_id,
+            self.member_id,
+            self.topics,
+            self._state,
         )
 
     def get_coordinator_broker(self):
         def _get_coordinator_failed(result):
             retry_delay = self.initial_backoff_ms
 
-            if result.check(CoordinatorNotAvailable,
-                            NotCoordinatorForConsumerError,
-                            RequestTimedOutError):
+            if result.check(
+                CoordinatorNotAvailable,
+                NotCoordinatorForConsumerError,
+                RequestTimedOutError,
+            ):
                 # while kafka is starting up, it may take some time before it
                 # successfully chooses an authoritative broker for the group
-                log.debug(
-                    "%s could not get coordinator broker: %s",
-                    self, result.value)
+                log.debug("%s could not get coordinator broker: %s", self, result.value)
                 if result.check(RequestTimedOutError):
                     retry_delay = self.fatal_backoff_ms
 
             elif result.check(KafkaError):
-                log.warn(
-                    "%s could not get coordinator broker: %s",
-                    self, result.value)
+                log.warn("%s could not get coordinator broker: %s", self, result.value)
                 retry_delay = self.fatal_backoff_ms
             else:
                 return result
@@ -170,9 +191,7 @@ class Coordinator(object):
             return metadata_d
 
         d = self.client._get_coordinator_for_group(self.group_id)
-        d.addCallbacks(
-            _get_coordinator_success,
-            _get_coordinator_failed)
+        d.addCallbacks(_get_coordinator_success, _get_coordinator_failed)
         return d
 
     def send_join_group_request(self):
@@ -273,7 +292,8 @@ class Coordinator(object):
             self._heartbeat_looper.reset()
         else:
             self._heartbeat_looper_d = self._heartbeat_looper.start(
-                self.heartbeat_interval_ms / 1000.0, now=False,
+                self.heartbeat_interval_ms / 1000.0,
+                now=False,
             )
             self._heartbeat_looper_d.addErrback(self._heartbeat_timer_failed)
             self._heartbeat_looper_d.addBoth(self._heartbeat_timer_stopped)
@@ -287,7 +307,7 @@ class Coordinator(object):
             raise RestopError("Shutdown called more than once.")
 
         log.info("%s stopping with %s", self, errback_result)
-        self._state = '[stopping]'
+        self._state = "[stopping]"
         self._stopping = True
         self._rejoin_needed = False
         if self._rejoin_wait_dc:
@@ -300,7 +320,7 @@ class Coordinator(object):
             if self._heartbeat_looper.running:
                 self._heartbeat_looper.stop()
 
-        self._state = '[leaving]'
+        self._state = "[leaving]"
         if self.coordinator_broker is not None and self.member_id:
             try:
                 yield self.send_leave_group_request()
@@ -311,7 +331,7 @@ class Coordinator(object):
             self._rejoin_d, d = None, self._rejoin_d
             d.cancel()
 
-        self._state = '[stopped]'
+        self._state = "[stopped]"
         self.protocol = None
         self.member_id = ""
         self.generation_id = None
@@ -355,8 +375,11 @@ class Coordinator(object):
         Called when the heartbeat LoopingCall terminates with an unhandled
         exception. This represents a bug.
         """
-        log.error("%s Unhandled exception in heartbeat loop",
-                  self, exc_info=(failure.type, failure.value, failure.getTracebackObject()))
+        log.error(
+            "%s Unhandled exception in heartbeat loop",
+            self,
+            exc_info=(failure.type, failure.value, failure.getTracebackObject()),
+        )
         # TODO: This should handle the failure by leaving the group.
         return failure
 
@@ -368,29 +391,25 @@ class Coordinator(object):
         rejoin_delay = self.retry_backoff_ms
 
         if result.check(RebalanceInProgress):
-            log.debug(
-                "%s %s: group rebalance needed, rejoining",
-                self, label)
+            log.debug("%s %s: group rebalance needed, rejoining", self, label)
 
-        elif result.check(CoordinatorNotAvailable,
-                          NotCoordinatorForConsumerError):
-            log.info(
-                "%s %s: group coordinator is invalid, rejoining",
-                self, label)
+        elif result.check(CoordinatorNotAvailable, NotCoordinatorForConsumerError):
+            log.info("%s %s: group coordinator is invalid, rejoining", self, label)
             self.client.reset_consumer_group_metadata(self.group_id)
 
         elif result.check(IllegalGeneration):
             # we have been rejected - our consumers should not remain open
             log.info(
                 "%s %s: generation id %s is not current, rejoining",
-                self, label, self.generation_id)
+                self,
+                label,
+                self.generation_id,
+            )
             self.on_group_leave()
 
         elif result.check(InvalidGroupId, UnknownMemberId):
             # we have been rejected - our consumers should not remain open
-            log.info(
-                "%s %s: member id is not valid, rejoining",
-                self, label)
+            log.info("%s %s: member id is not valid, rejoining", self, label)
             self.on_group_leave()
             self.member_id = ""
 
@@ -398,16 +417,12 @@ class Coordinator(object):
             # this error can only happen if there's already a consumer group on
             # the topic and it doesn't support the protocols we've declared.
             # retrying is unlikely to help, so wait longer between attempts
-            log.error(
-                "%s %s: group protocol was rejected, delaying rejoin",
-                self, label)
+            log.error("%s %s: group protocol was rejected, delaying rejoin", self, label)
             rejoin_delay = self.fatal_backoff_ms
 
         elif result.check(RequestTimedOutError):
             # If the request timed out, use the long delay before trying again
-            log.warn(
-                "%s %s: request timed out, delaying rejoin",
-                self, label)
+            log.warn("%s %s: request timed out, delaying rejoin", self, label)
             self.on_group_leave()
             self.client.reset_consumer_group_metadata(self.group_id)
             rejoin_delay = self.fatal_backoff_ms
@@ -422,35 +437,33 @@ class Coordinator(object):
             # retrying probably won't help, so wait longer between attempts
             log.error(
                 "%s %s: unexpected response error: %r, delaying rejoin",
-                self, label, result)
+                self,
+                label,
+                result,
+            )
             rejoin_delay = self.fatal_backoff_ms
 
         else:
             # if it wasn't a kafka error, we're not going to try to rejoin
-            log.error(
-                "%s %s: unknown error %s",
-                self, label, result)
+            log.error("%s %s: unknown error %s", self, label, result)
             self.on_group_leave()
             self.stop(errback_result=result)
             return
 
-        self._state = '[rejoin_needed]'
+        self._state = "[rejoin_needed]"
         self._rejoin_needed = True
         if not self._rejoin_wait_dc:
             rejoin_delay_s = rejoin_delay / 1000.0
-            log.debug(
-                "%s %s: scheduling rejoin in %.1fs",
-                self, label, rejoin_delay_s)
-            self._rejoin_wait_dc = self.client.reactor.callLater(
-                rejoin_delay_s, self.join_and_sync)
+            log.debug("%s %s: scheduling rejoin in %.1fs", self, label, rejoin_delay_s)
+            self._rejoin_wait_dc = self.client.reactor.callLater(rejoin_delay_s, self.join_and_sync)
 
     def join_and_sync(self):
         """
-            Called to join (or rejoin) the consumer group.
-            Failures will result in join_and_sync being rescheduled
-            to run again after a short delay, until it succeeds.
+        Called to join (or rejoin) the consumer group.
+        Failures will result in join_and_sync being rescheduled
+        to run again after a short delay, until it succeeds.
 
-            Failed heartbeats will also reschedule join_and_sync
+        Failed heartbeats will also reschedule join_and_sync
         """
         if self._rejoin_wait_dc:
             self._rejoin_wait_dc = None
@@ -478,13 +491,13 @@ class Coordinator(object):
 
     @inlineCallbacks
     def _join_and_sync(self):
-        self._state = '[fetching_broker]'
+        self._state = "[fetching_broker]"
         coordinator_broker = yield self.get_coordinator_broker()
         if not coordinator_broker or self._stopping:
             return
         self.coordinator_broker = coordinator_broker
 
-        self._state = '[joining]'
+        self._state = "[joining]"
         yield self.on_join_prepare()
         join_response = yield self.send_join_group_request()
         if not join_response or self._stopping:
@@ -493,20 +506,24 @@ class Coordinator(object):
 
         log.debug(
             "%s joined, leader=%s",
-            self, join_response.leader_id == join_response.member_id)
+            self,
+            join_response.leader_id == join_response.member_id,
+        )
         assignments = []
         if join_response.leader_id == join_response.member_id:
             try:
                 assignments = yield self.protocol.generate_assignments(
-                    join_response.members, topic_partitions={},
+                    join_response.members,
+                    topic_partitions={},
                 )
             except _NeedTopicPartitions as e:
                 topic_partitions = yield self.client._load_topic_partitions(*e.topics)
                 assignments = yield self.protocol.generate_assignments(
-                    join_response.members, topic_partitions=topic_partitions,
+                    join_response.members,
+                    topic_partitions=topic_partitions,
                 )
 
-        self._state = '[syncing]'
+        self._state = "[syncing]"
         sync_response = yield self.send_sync_group_request(assignments)
         if not sync_response or self._stopping:
             # sync failed, we'll be called again after a small delay
@@ -517,26 +534,26 @@ class Coordinator(object):
         assignment = self.protocol.decode_assignment(sync_response.member_assignment)
         self.reset_heartbeat_timer()
         self._rejoin_needed = False
-        self._state = '[joined]'
+        self._state = "[joined]"
 
         yield self.on_join_complete(assignment)
 
     def on_group_leave(self):
         """
-            Called when the coordinator has been removed from the group
-            (such as from a heartbeat error) and will not be rejoining
+        Called when the coordinator has been removed from the group
+        (such as from a heartbeat error) and will not be rejoining
         """
         log.info("%s: on_group_leave", self)
 
     def on_join_prepare(self):
         """
-            Called before joining or rejoining the group
+        Called before joining or rejoining the group
         """
         log.info("%s: on_join_prepare", self)
 
     def on_join_complete(self, assignments):
         """
-            Called after a successful group sync
+        Called after a successful group sync
         """
         log.info("%s: on_join_complete assignments=%r", self, assignments)
 
@@ -552,6 +569,7 @@ class _NeedTopicPartitions(Exception):
     :ivar topics: Names of the required topics.
     :type topics: List[str]
     """
+
     topics = attr.ib()
 
 
@@ -565,6 +583,7 @@ class _ConsumerProtocol(object):
     .. Consumer Embedded Protocol:
         https://cwiki.apache.org/confluence/display/KAFKA/Kafka+Client-side+Assignment+Proposal#KafkaClient-sideAssignmentProposal-ConsumerEmbeddedProtocol
     """
+
     protocol_type = "consumer"
 
     def join_group_protocols(self, topics):
@@ -584,7 +603,7 @@ class _ConsumerProtocol(object):
         metadata = KafkaCodec.encode_join_group_protocol_metadata(
             version=0,
             subscriptions=topics,
-            user_data=b'',
+            user_data=b"",
         )
         return [_JoinGroupRequestProtocol(self.protocol_type, metadata)]
 
@@ -623,7 +642,7 @@ class _ConsumerProtocol(object):
             encoded = KafkaCodec.encode_sync_group_member_assignment(
                 version=0,
                 assignments=assignments.get(member.member_id, {}),
-                user_data=b'',
+                user_data=b"",
             )
             encoded_assignments.append(_SyncGroupRequestMember(member.member_id, encoded))
         return encoded_assignments
@@ -637,11 +656,7 @@ class _ConsumerProtocol(object):
         assert all_topics
 
         try:
-            all_topic_partitions = [
-                (topic, partition)
-                for topic in all_topics
-                for partition in topic_partitions[topic]
-            ]
+            all_topic_partitions = [(topic, partition) for topic in all_topics for partition in topic_partitions[topic]]
         except KeyError:
             raise _NeedTopicPartitions(all_topics)
 
@@ -651,7 +666,7 @@ class _ConsumerProtocol(object):
         assignment = collections.defaultdict(lambda: collections.defaultdict(list))
 
         member_iter = itertools.cycle(sorted(member_metadata.keys()))
-        for (topic, partition) in all_topic_partitions:
+        for topic, partition in all_topic_partitions:
             member_id = next(member_iter)
 
             # Because we constructed all_topic_partitions from the set of
@@ -677,8 +692,7 @@ class _ConsumerProtocol(object):
 
 
 class ConsumerGroup(Coordinator):
-    def __init__(self, client, group_id, topics, processor,
-                 consumer_kwargs=None, **kwargs):
+    def __init__(self, client, group_id, topics, processor, consumer_kwargs=None, **kwargs):
         """
         Coordinated consumer group implementation. Consuming the partitions
         on the topic(s) are load-balanced by Kafka among active connections.
@@ -709,7 +723,7 @@ class ConsumerGroup(Coordinator):
         self.consumers = {}
 
     def __repr__(self):
-        return '<afkak.{} 0x{:x} for {!r} {} member_id={!r}>'.format(
+        return "<afkak.{} 0x{:x} for {!r} {} member_id={!r}>".format(
             self.__class__.__name__,
             id(self),
             self.group_id,
@@ -720,14 +734,11 @@ class ConsumerGroup(Coordinator):
     @inlineCallbacks
     def shutdown_consumers(self):
         """
-            Shuts down all consumers (gracefully - they will commit and exit)
+        Shuts down all consumers (gracefully - they will commit and exit)
         """
         if self.consumers:
             current_consumers, self.consumers = self.consumers, {}
-            num_consumers = sum(
-                len(topic_consumers)
-                for topic_consumers in current_consumers
-            )
+            num_consumers = sum(len(topic_consumers) for topic_consumers in current_consumers)
             shutdown_des = []
             for consumers in current_consumers.values():
                 for consumer in consumers:
@@ -736,9 +747,7 @@ class ConsumerGroup(Coordinator):
                     try:
                         shutdown_de = consumer.shutdown()
                     except Exception as e:
-                        log.error(
-                            "shutdown_consumers error in consumer %s: %s",
-                            consumer, e)
+                        log.error("shutdown_consumers error in consumer %s: %s", consumer, e)
                         try:
                             # FIXME: This should not poke private state. It
                             # should store the deferred when it starts the
@@ -748,7 +757,9 @@ class ConsumerGroup(Coordinator):
                         except Exception as e2:
                             log.error(
                                 "shutdown_consumers stop error in consumer %s: %s",
-                                consumer, e2)
+                                consumer,
+                                e2,
+                            )
                     else:
                         shutdown_des.append(shutdown_de)
             try:
@@ -764,21 +775,16 @@ class ConsumerGroup(Coordinator):
                                 consumer.stop()
                         except Exception as e2:
                             log.error("shutdown_consumers deferred stop error: %s", e2)
-            log.debug(
-                "%s shutdown_consumers: %s consumers shutdown",
-                self, num_consumers)
+            log.debug("%s shutdown_consumers: %s consumers shutdown", self, num_consumers)
 
     def stop_consumers(self):
         """
-            Shuts down all consumers (ungracefully)
-            figure out when we want this
+        Shuts down all consumers (ungracefully)
+        figure out when we want this
         """
         if self.consumers:
             current_consumers, self.consumers = self.consumers, {}
-            num_consumers = sum(
-                len(topic_consumers)
-                for topic_consumers in current_consumers.values()
-            )
+            num_consumers = sum(len(topic_consumers) for topic_consumers in current_consumers.values())
             for consumers in current_consumers.values():
                 for consumer in consumers:
                     try:
@@ -787,33 +793,33 @@ class ConsumerGroup(Coordinator):
                     except Exception as e2:
                         log.error(
                             "shutdown_consumers stop error in consumer %s: %s",
-                            consumer, e2)
-            log.debug(
-                "stop_consumers (%s) %s consumers stopped",
-                self, num_consumers)
+                            consumer,
+                            e2,
+                        )
+            log.debug("stop_consumers (%s) %s consumers stopped", self, num_consumers)
 
     def on_group_leave(self):
         """
-            Called when leaving the group forcefully
-            all currently-held consumers will stop (forcibly)
+        Called when leaving the group forcefully
+        all currently-held consumers will stop (forcibly)
         """
         log.debug("%s on_group_leave", self)
         self.stop_consumers()
 
     def on_join_prepare(self):
         """
-            Called before joining or rejoining the group
+        Called before joining or rejoining the group
 
-            all currently-held partition consumers will commit and close
+        all currently-held partition consumers will commit and close
         """
         log.debug("%s on_join_prepare", self)
         return self.shutdown_consumers()
 
     def on_join_complete(self, assignments):
         """
-            Called after a successful group sync
+        Called after a successful group sync
 
-            starts up consumers for the newly assigned partitions
+        starts up consumers for the newly assigned partitions
         """
         log.debug("%s on_join_complete: %s", self, assignments)
         for topic, partitions in assignments.items():
@@ -826,7 +832,8 @@ class ConsumerGroup(Coordinator):
                     consumer_group=self.group_id,
                     commit_consumer_id=self.member_id,
                     commit_generation_id=self.generation_id,
-                    **self.consumer_kwargs)
+                    **self.consumer_kwargs,
+                )
                 self.consumers.setdefault(topic, []).append(consumer)
                 start_d = consumer.start(OFFSET_COMMITTED)
                 start_d.addErrback(self.on_consumer_error)

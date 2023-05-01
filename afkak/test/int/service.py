@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 
 __all__ = [
-    'ExternalService',
-    'SpawnedService',
+    "ExternalService",
+    "SpawnedService",
 ]
 
 _STOP_TIMEOUT = timedelta(seconds=60)
@@ -65,9 +65,9 @@ class SpawnedService(object):
                 (rds, _, _) = select.select([proc.stdout], [], [], 0.01)
 
                 if proc.stdout in rds:
-                    line = proc.stdout.readline().decode('utf-8', 'backslashescape')
+                    line = proc.stdout.readline().decode("utf-8", "backslashescape")
                     if line:
-                        self._log.debug(line.rstrip('\r\n'))
+                        self._log.debug(line.rstrip("\r\n"))
                         if self._start_re.search(line):
                             self._log.debug("Marking subprocess started")
                             self._started.set()
@@ -85,8 +85,12 @@ class SpawnedService(object):
                     stop_deadline = datetime.utcnow() + _STOP_TIMEOUT
 
                 if returncode is not None:
-                    self._log.critical("Subprocess with args=%r, env=%r has died unexpectedly: returncode=%d",
-                                       self._args, self._env, returncode)
+                    self._log.critical(
+                        "Subprocess with args=%r, env=%r has died unexpectedly: returncode=%d",
+                        self._args,
+                        self._env,
+                        returncode,
+                    )
                     raise Exception("Subprocess died unexpectedly with status {!r}".format(returncode))
             else:
                 if returncode is not None:
@@ -95,8 +99,9 @@ class SpawnedService(object):
 
                 if not killed and datetime.utcnow() > stop_deadline:
                     log.error(
-                        'Child process %r failed to exit within %d. Resorting to kill.',
-                        proc, _STOP_TIMEOUT,
+                        "Child process %r failed to exit within %d. Resorting to kill.",
+                        proc,
+                        _STOP_TIMEOUT,
                     )
                     proc.kill()
                     killed = True

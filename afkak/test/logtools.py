@@ -33,6 +33,7 @@ class _CaptureHandler(logging.Handler):
     :ivar list records:
         All of the :class:`logging.LogRecord` objects emitted to this handler.
     """
+
     def __init__(self):
         super(_CaptureHandler, self).__init__()
         self.records = []
@@ -75,7 +76,7 @@ def capture_logging(logger, level=logging.DEBUG):
 class CaptureLoggingTests(unittest.TestCase):
     """Test :func:`capture_logging()`"""
 
-    logger = logging.getLogger(__name__).getChild('CaptureLoggingTests')
+    logger = logging.getLogger(__name__).getChild("CaptureLoggingTests")
 
     def test_capture(self):
         """

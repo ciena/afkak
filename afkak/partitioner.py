@@ -20,12 +20,13 @@ from random import randint
 
 try:
     from murmurhash2 import murmurhash2
-    _c_murmur2 = murmurhash2(b'', 0x9747b28c)
+
+    _c_murmur2 = murmurhash2(b"", 0x9747B28C)
 except ImportError:  # pragma: no cover
     _c_murmur2 = None
 
 
-def pure_murmur2(byte_array, seed=0x9747b28c):
+def pure_murmur2(byte_array, seed=0x9747B28C):
     """Pure-python Murmur2 implementation.
 
     Based on java client, see org.apache.kafka.common.utils.Utils.murmur2
@@ -38,15 +39,14 @@ def pure_murmur2(byte_array, seed=0x9747b28c):
     """
     # Ensure byte_array arg is a bytearray
     if not isinstance(byte_array, bytearray):
-        raise TypeError("Type: %r of 'byte_array' arg must be 'bytearray'",
-                        type(byte_array))
+        raise TypeError("Type: %r of 'byte_array' arg must be 'bytearray'", type(byte_array))
 
     length = len(byte_array)
     # 'm' and 'r' are mixing constants generated offline.
     # They're not really 'magic', they just happen to work well.
-    m = 0x5bd1e995
+    m = 0x5BD1E995
     r = 24
-    mod32bits = 0xffffffff
+    mod32bits = 0xFFFFFFFF
 
     # Initialize the hash to a random value
     h = seed ^ length
@@ -54,8 +54,12 @@ def pure_murmur2(byte_array, seed=0x9747b28c):
 
     for i in range(length4):
         i4 = i * 4
-        k = ((byte_array[i4 + 0] & 0xff) + ((byte_array[i4 + 1] & 0xff) << 8) +
-             ((byte_array[i4 + 2] & 0xff) << 16) + ((byte_array[i4 + 3] & 0xff) << 24))
+        k = (
+            (byte_array[i4 + 0] & 0xFF)
+            + ((byte_array[i4 + 1] & 0xFF) << 8)
+            + ((byte_array[i4 + 2] & 0xFF) << 16)
+            + ((byte_array[i4 + 3] & 0xFF) << 24)
+        )
         k &= mod32bits
         k *= m
         k &= mod32bits
@@ -72,15 +76,15 @@ def pure_murmur2(byte_array, seed=0x9747b28c):
     # Handle the last few bytes of the input array
     extra_bytes = length % 4
     if extra_bytes == 3:
-        h ^= (byte_array[(length & ~3) + 2] & 0xff) << 16
+        h ^= (byte_array[(length & ~3) + 2] & 0xFF) << 16
         h &= mod32bits
 
     if extra_bytes >= 2:
-        h ^= (byte_array[(length & ~3) + 1] & 0xff) << 8
+        h ^= (byte_array[(length & ~3) + 1] & 0xFF) << 8
         h &= mod32bits
 
     if extra_bytes >= 1:
-        h ^= (byte_array[length & ~3] & 0xff)
+        h ^= byte_array[length & ~3] & 0xFF
         h &= mod32bits
         h *= m
         h &= mod32bits
@@ -102,6 +106,7 @@ class Partitioner(object):
     :ivar bytes topic: Topic name
     :ivar partitions: :class:`list` of :class:`int`
     """
+
     def __init__(self, topic, partitions):
         """
         Initialize the partitioner
@@ -120,7 +125,7 @@ class Partitioner(object):
                      may look like an overhead, but it will be useful
                      (in future) when we handle cases like rebalancing
         """
-        raise NotImplementedError('partition function has to be implemented')
+        raise NotImplementedError("partition function has to be implemented")
 
 
 class RoundRobinPartitioner(Partitioner):
@@ -129,6 +134,7 @@ class RoundRobinPartitioner(Partitioner):
     in a round robin fashion. Also supports starting each new partitioner
     at a random offset into the cycle of partitions
     """
+
     randomStart = False
 
     @classmethod
@@ -140,8 +146,7 @@ class RoundRobinPartitioner(Partitioner):
         self._set_partitions(partitions)
 
     def __repr__(self):
-        return '<RoundRobinPartitioner {}:{}>'.format(self.randomStart,
-                                                      self.partitions)
+        return "<RoundRobinPartitioner {}:{}>".format(self.randomStart, self.partitions)
 
     def _set_partitions(self, partitions):
         self.partitions = sorted(partitions)
@@ -162,21 +167,26 @@ class HashedPartitioner(Partitioner):
     Implements a partitioner which selects the target partition based on
     the hash of the key.
     """
+
     if _c_murmur2:
+
         def _hash(self, key):
             """
             Coerce the input into `bytes` with UTF-8 encoding for the
             C MurmurHash2 implementation.
             """
-            if isinstance(key, type(u'')):
-                key = key.encode('UTF-8')
+            if isinstance(key, type("")):
+                key = key.encode("UTF-8")
             elif isinstance(key, bytearray):
                 key = bytes(key)
             elif not isinstance(key, bytes):
-                raise TypeError('Partition key {!r} must be {} or {},'
-                                ' not {}'.format(key, type(b''), type(u''), type(key)))
-            return murmurhash2(key, 0x9747b28c)
+                raise TypeError(
+                    "Partition key {!r} must be {} or {}," " not {}".format(key, type(b""), type(""), type(key))
+                )
+            return murmurhash2(key, 0x9747B28C)
+
     else:
+
         def _hash(self, key):
             """
             Coerce the input into a bytearray for the pure-Python MurmurHash2
@@ -186,12 +196,12 @@ class HashedPartitioner(Partitioner):
                 "Using slow pure Python Murmur2 hash; install Afkak[FastMurmur2] for speedup",
                 ImportWarning,
             )
-            if isinstance(key, type(u'')):
-                key = bytearray(key, 'UTF-8')
+            if isinstance(key, type("")):
+                key = bytearray(key, "UTF-8")
             elif isinstance(key, bytes):
                 key = bytearray(key)
             elif not isinstance(key, bytearray):
-                raise TypeError('Partition key {!r} must be str, bytes, or bytearray, not {}'.format(key, type(key)))
+                raise TypeError("Partition key {!r} must be str, bytes, or bytearray, not {}".format(key, type(key)))
             return pure_murmur2(key)
 
     def partition(self, key, partitions):

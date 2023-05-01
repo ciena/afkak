@@ -16,18 +16,14 @@
 
 import logging
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.trial import unittest
-
 from afkak import Consumer, create_message
-from afkak.common import (
-    OFFSET_COMMITTED, OFFSET_EARLIEST, ConsumerFetchSizeTooSmall,
-    ProduceRequest,
-)
+from afkak.common import OFFSET_COMMITTED, OFFSET_EARLIEST, ConsumerFetchSizeTooSmall, ProduceRequest
 from afkak.consumer import FETCH_BUFFER_SIZE_BYTES
 from afkak.test.testutil import async_delay, random_string
 
 from .intutil import IntegrationMixin, kafka_versions
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.trial import unittest
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +43,8 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         produce = ProduceRequest(self.topic, partition, messages=messages)
 
         [resp] = yield self.retry_while_broker_errors(
-            self.client.send_produce_request, [produce],
+            self.client.send_produce_request,
+            [produce],
         )
 
         self.assertEqual(resp.error, 0)
@@ -104,8 +101,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
     @inlineCallbacks
     def test_large_messages(self):
         # Produce 10 "normal" size messages
-        small_messages = yield self.send_messages(
-            0, [str(x) for x in range(10)])
+        small_messages = yield self.send_messages(0, [str(x) for x in range(10)])
 
         # Produce 10 messages that are large (bigger than default fetch size)
         large_messages = yield self.send_messages(
@@ -125,8 +121,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
             yield async_delay()
 
         expected_messages = set(small_messages + large_messages)
-        actual_messages = set([x.message.value for x in
-                               consumer.processor._messages])
+        actual_messages = set([x.message.value for x in consumer.processor._messages])
         self.assertEqual(expected_messages, actual_messages)
 
         # Clean up
@@ -142,8 +137,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         # Setup a max buffer size for the consumer, and put a message in
         # Kafka that's bigger than that
         MAX_FETCH_BUFFER_SIZE_BYTES = (256 * 1024) - 10
-        huge_message, = yield self.send_messages(
-            0, [random_string(MAX_FETCH_BUFFER_SIZE_BYTES + 10)])
+        (huge_message,) = yield self.send_messages(0, [random_string(MAX_FETCH_BUFFER_SIZE_BYTES + 10)])
 
         # Create a consumer with the (smallish) max buffer size
         consumer = self.consumer(max_buffer_size=MAX_FETCH_BUFFER_SIZE_BYTES)
@@ -177,8 +171,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
             # Wait a bit for it to arrive
             yield async_delay()
 
-        self.assertEqual(big_consumer.processor._messages[0].message.value,
-                         huge_message)
+        self.assertEqual(big_consumer.processor._messages[0].message.value, huge_message)
 
         # Clean up
         big_consumer.stop()
@@ -199,8 +192,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         start_d = consumer.start(OFFSET_EARLIEST)
 
         # Send some more messages
-        sent_messages += yield self.send_messages(
-            self.partition, range(100, 200))
+        sent_messages += yield self.send_messages(self.partition, range(100, 200))
 
         # Loop waiting for all the messages to show up
         while len(consumer.processor._messages) < 200:
@@ -216,8 +208,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         self.successResultOf(start_d)
 
         # Send some more messages
-        sent_messages += yield self.send_messages(
-            self.partition, range(200, 250))
+        sent_messages += yield self.send_messages(self.partition, range(200, 250))
         # Restart the consumer at the returned offset
         start_d2 = consumer.start(offset)
         # Loop waiting for the new message
@@ -228,8 +219,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         # make sure we got them all
         self.assert_message_count(consumer.processor._messages, 250)
         expected_messages = set(sent_messages)
-        actual_messages = set([x.message.value for x in
-                               consumer.processor._messages])
+        actual_messages = set([x.message.value for x in consumer.processor._messages])
         self.assertEqual(expected_messages, actual_messages)
 
         # Clean up
@@ -243,9 +233,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         yield self.send_messages(self.partition, range(0, 100))
 
         # Create a consumer, allow commit, disable auto-commit
-        consumer = self.consumer(consumer_group=self.id(),
-                                 auto_commit_every_n=0,
-                                 auto_commit_every_ms=0)
+        consumer = self.consumer(consumer_group=self.id(), auto_commit_every_n=0, auto_commit_every_ms=0)
 
         # Check for messages on the processor
         self.assertFalse(consumer.processor._messages)
@@ -274,9 +262,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         last_batch = yield self.send_messages(self.partition, range(200, 300))
 
         # Create another consumer
-        consumer2 = self.consumer(consumer_group=self.id(),
-                                  auto_commit_every_n=0,
-                                  auto_commit_every_ms=0)
+        consumer2 = self.consumer(consumer_group=self.id(), auto_commit_every_n=0, auto_commit_every_ms=0)
         # Start it at the last offset for the group
         start_d2 = consumer2.start(OFFSET_COMMITTED)
         # Loop waiting for all the messages to show up
@@ -285,8 +271,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
             yield async_delay()
         # Make sure we got all 100, and the right 100
         self.assertEqual(len(consumer2.processor._messages), 100)
-        self.assertEqual(last_batch, [x.message.value for x in
-                                      consumer2.processor._messages])
+        self.assertEqual(last_batch, [x.message.value for x in consumer2.processor._messages])
 
         # Stop the consumer
         consumer2.stop()
@@ -297,8 +282,8 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
             def default_message_proccessor(consumer_instance, messages):
                 """Default message processing function
 
-                   Strictly for testing.
-                   Just adds the messages to its own _messages attr
+                Strictly for testing.
+                Just adds the messages to its own _messages attr
                 """
                 default_message_proccessor._messages.extend(messages)
                 return None
@@ -308,10 +293,9 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
 
             return default_message_proccessor
 
-        topic = kwargs.pop('topic', self.topic)
-        partition = kwargs.pop('partition', self.partition)
-        processor = kwargs.pop('processor', make_processor())
-        group = kwargs.pop('consumer_group', None)
+        topic = kwargs.pop("topic", self.topic)
+        partition = kwargs.pop("partition", self.partition)
+        processor = kwargs.pop("processor", make_processor())
+        group = kwargs.pop("consumer_group", None)
 
-        return Consumer(self.client, topic, partition, processor, group,
-                        **kwargs)
+        return Consumer(self.client, topic, partition, processor, group, **kwargs)

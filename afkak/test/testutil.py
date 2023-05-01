@@ -18,18 +18,17 @@ import logging
 import random
 import string
 
+from ..common import SendRequest
 from twisted.internet import task
 from twisted.internet.defer import Deferred
-
-from ..common import SendRequest
 
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'async_delay',
-    'first',
-    'make_send_requests',
-    'random_string',
+    "async_delay",
+    "first",
+    "make_send_requests",
+    "random_string",
 ]
 
 
@@ -49,6 +48,7 @@ def first(deferreds):
     :returns: `Deferred` that fires with the result of the first deferred to
         fire or fail. Canceling this deferred cancels all of the deferreds.
     """
+
     def cancel_all(self):
         for d in deferreds:
             d.cancel()
@@ -76,7 +76,7 @@ def random_string(length):
         r = random_string(50)
         s = "".join(r for i in range(length // 50))
         if length % 50:
-            s += r[0:(length % 50)]
+            s += r[0 : (length % 50)]
     assert len(s) == length
     return s
 

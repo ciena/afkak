@@ -32,10 +32,11 @@ import struct
 # can read a xerial block stream, presently in the wild this is 1.
 #
 # See https://github.com/dpkp/kafka-python/pull/127 for background.
-_XERIAL_HEADER = b'\x82SNAPPY\x00\x00\x00\x00\x01\x00\x00\x00\x01'
+_XERIAL_HEADER = b"\x82SNAPPY\x00\x00\x00\x00\x01\x00\x00\x00\x01"
 
 try:
     import snappy
+
     _has_snappy = True
 except ImportError:
     _has_snappy = False
@@ -59,15 +60,14 @@ def gzip_encode(payload):
 
 def gzip_decode(payload):
     buffer = BytesIO(payload)
-    handle = gzip.GzipFile(fileobj=buffer, mode='r')
+    handle = gzip.GzipFile(fileobj=buffer, mode="r")
     result = handle.read()
     handle.close()
     buffer.close()
     return result
 
 
-def snappy_encode(payload, xerial_compatible=False,
-                  xerial_blocksize=32 * 1024):
+def snappy_encode(payload, xerial_compatible=False, xerial_blocksize=32 * 1024):
     """
     Compress the given data with the Snappy algorithm.
 
@@ -95,16 +95,17 @@ def snappy_encode(payload, xerial_compatible=False,
         raise NotImplementedError("Snappy codec is not available")
 
     if xerial_compatible:
+
         def _chunker():
             for i in range(0, len(payload), xerial_blocksize):
-                yield payload[i:i+xerial_blocksize]
+                yield payload[i : i + xerial_blocksize]
 
         out = BytesIO()
         out.write(_XERIAL_HEADER)
 
         for chunk in _chunker():
             block = snappy.compress(chunk)
-            out.write(struct.pack('!i', len(block)))
+            out.write(struct.pack("!i", len(block)))
             out.write(block)
 
         out.seek(0)
@@ -126,7 +127,7 @@ def snappy_decode(payload):
 
         cursor = 16
         while cursor < length:
-            block_size = struct.unpack_from('!i', view, cursor)[0]
+            block_size = struct.unpack_from("!i", view, cursor)[0]
             # Skip the block size
             cursor += 4
             end = cursor + block_size
@@ -136,6 +137,6 @@ def snappy_decode(payload):
             cursor = end
 
         # See https://atleastfornow.net/blog/not-all-bytes/
-        return b''.join(out)
+        return b"".join(out)
     else:
         return snappy.decompress(payload)

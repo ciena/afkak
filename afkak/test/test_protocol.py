@@ -18,18 +18,15 @@ import logging
 import unittest
 from unittest import mock
 
+from .._protocol import KafkaBootstrapProtocol, KafkaProtocol
+from .logtools import capture_logging
 from twisted.internet.address import IPv4Address
 from twisted.internet.error import ConnectionDone, ConnectionLost
 from twisted.logger import LogLevel, globalLogPublisher
 from twisted.python.failure import Failure
 from twisted.test.iosim import FakeTransport
-from twisted.test.proto_helpers import (
-    EventLoggingObserver, StringTransportWithDisconnection,
-)
+from twisted.test.proto_helpers import EventLoggingObserver, StringTransportWithDisconnection
 from twisted.trial.unittest import SynchronousTestCase
-
-from .._protocol import KafkaBootstrapProtocol, KafkaProtocol
-from .logtools import capture_logging
 
 
 class TheFactory(object):
@@ -37,7 +34,8 @@ class TheFactory(object):
     `TheFactory` implements the bits of `_KafkaBrokerClient` that
     `_KafkaProtocol` interacts with.
     """
-    log = logging.getLogger(__name__).getChild('TheFactory')
+
+    log = logging.getLogger(__name__).getChild("TheFactory")
 
     def handleResponse(self, string):
         """Called for each response."""
@@ -79,23 +77,23 @@ class KafkaProtocolTests(unittest.TestCase):
         is received.
         """
         too_long = KafkaProtocol.MAX_LENGTH + 1
-        peer = IPv4Address('TCP', '1.2.3.4', 1234)
+        peer = IPv4Address("TCP", "1.2.3.4", 1234)
         kp = KafkaProtocol()
         kp.factory = factory_spy = mock.Mock(wraps=TheFactory())
         kp.transport = StringTransportWithDisconnection(peerAddress=peer)
         kp.transport.protocol = kp
 
-        with capture_logging(logging.getLogger('afkak.protocol')) as records:
+        with capture_logging(logging.getLogger("afkak.protocol")) as records:
             kp.lengthLimitExceeded(too_long)
 
         self.assertEqual(1, len(factory_spy._connectionLost.mock_calls))
 
         [record] = records
         record.getMessage()  # Formats okay.
-        self.assertEqual((
-            'Broker at %s sent a %d byte message, exceeding the size limit of %d. '
-            'Terminating connection.'
-        ), record.msg)
+        self.assertEqual(
+            ("Broker at %s sent a %d byte message, exceeding the size limit of %d. " "Terminating connection."),
+            record.msg,
+        )
         self.assertEqual((peer, too_long, kp.MAX_LENGTH), record.args)
 
 
@@ -107,8 +105,9 @@ class KafkaBootstrapProtocolTests(SynchronousTestCase):
     :ivar transport: `FakeTransport` object associated with the protocol,
         connected in setUp
     """
+
     def setUp(self):
-        self.peer = IPv4Address('TCP', 'kafka', 9072)
+        self.peer = IPv4Address("TCP", "kafka", 9072)
         self.protocol = KafkaBootstrapProtocol()
         self.transport = FakeTransport(self.protocol, isServer=False, peerAddress=self.peer)
         self.protocol.makeConnection(self.transport)
@@ -117,31 +116,31 @@ class KafkaBootstrapProtocolTests(SynchronousTestCase):
         """
         Happy path: a request is made and a response received.
         """
-        correlation_id = b'corr'
-        client_request = b'api ' + correlation_id + b'corr more stuff'
+        correlation_id = b"corr"
+        client_request = b"api " + correlation_id + b"corr more stuff"
 
         d = self.protocol.request(client_request)
         self.assertNoResult(d)
 
         # The request was written to the server.
         server_request = self.transport.getOutBuffer()
-        self.assertEqual(b'\0\0\0\x17' + client_request, server_request)
+        self.assertEqual(b"\0\0\0\x17" + client_request, server_request)
 
-        self.transport.bufferReceived(b'\0\0\0\x05' + correlation_id + b'y')
-        self.assertEqual(correlation_id + b'y', self.successResultOf(d))
+        self.transport.bufferReceived(b"\0\0\0\x05" + correlation_id + b"y")
+        self.assertEqual(correlation_id + b"y", self.successResultOf(d))
 
     def test_disconnected(self):
         """
         Pending and future requests fail when the connection goes away.
         """
-        d = self.protocol.request(b'api corr stuff')
+        d = self.protocol.request(b"api corr stuff")
         self.assertNoResult(d)
 
-        self.transport.disconnectReason = ConnectionLost('Bye.')
+        self.transport.disconnectReason = ConnectionLost("Bye.")
         self.transport.reportDisconnect()
         self.failureResultOf(d, ConnectionLost)
 
-        self.failureResultOf(self.protocol.request(b'api corr more'), ConnectionLost)
+        self.failureResultOf(self.protocol.request(b"api corr more"), ConnectionLost)
 
     def test_unknown_correlation_id(self):
         """
@@ -149,21 +148,21 @@ class KafkaBootstrapProtocolTests(SynchronousTestCase):
         unknown correlation ID is received.
         """
         events = EventLoggingObserver.createWithCleanup(self, globalLogPublisher)
-        self.transport.bufferReceived(b'\0\0\0\x101234 more stuff..')
+        self.transport.bufferReceived(b"\0\0\0\x101234 more stuff..")
         self.assertTrue(self.transport.disconnecting)
 
         [event] = events
-        self.assertEqual(LogLevel.warn, event['log_level'])
-        self.assertEqual(self.peer, event['peer'])
-        self.assertEqual(b'1234', event['correlation_id'])
+        self.assertEqual(LogLevel.warn, event["log_level"])
+        self.assertEqual(self.peer, event["peer"])
+        self.assertEqual(b"1234", event["correlation_id"])
 
     def test_oversized_response(self):
         """
         An oversized response from the server prompts disconnection.
         """
-        d = self.protocol.request(b'api corr blah blah')
+        d = self.protocol.request(b"api corr blah blah")
 
-        self.transport.bufferReceived(b'\xff\xff\xff\xff')  # 2**32 - 1, way too large.
+        self.transport.bufferReceived(b"\xff\xff\xff\xff")  # 2**32 - 1, way too large.
 
         self.assertTrue(self.transport.disconnecting)
         self.assertNoResult(d)  # Will fail when the disconnect completes.

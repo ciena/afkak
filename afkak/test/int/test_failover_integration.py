@@ -17,19 +17,22 @@
 import logging
 import time
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.trial import unittest
-
 from afkak import KafkaClient, Producer
 from afkak.common import (
-    PRODUCER_ACK_ALL_REPLICAS, FailedPayloadsError, FetchRequest,
-    KafkaUnavailableError, NotLeaderForPartitionError, RequestTimedOutError,
-    TopicAndPartition, UnknownTopicOrPartitionError,
+    PRODUCER_ACK_ALL_REPLICAS,
+    FailedPayloadsError,
+    FetchRequest,
+    KafkaUnavailableError,
+    NotLeaderForPartitionError,
+    RequestTimedOutError,
+    TopicAndPartition,
+    UnknownTopicOrPartitionError,
 )
-from afkak.test.int.intutil import (
-    IntegrationMixin, ensure_topic_creation, kafka_versions,
-)
+from afkak.test.int.intutil import IntegrationMixin, ensure_topic_creation, kafka_versions
 from afkak.test.testutil import async_delay, random_string
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.trial import unittest
 
 log = logging.getLogger(__name__)
 
@@ -69,9 +72,9 @@ class TestFailover(IntegrationMixin, unittest.TestCase):
                 broker, kill_time = self._kill_leader(topic, 0)
 
                 log.debug("Sending 1 more message: 'part 1'")
-                yield producer.send_messages(topic, msgs=[b'part 1'])
+                yield producer.send_messages(topic, msgs=[b"part 1"])
                 log.debug("Sending 1 more message: 'part 2'")
-                yield producer.send_messages(topic, msgs=[b'part 2'])
+                yield producer.send_messages(topic, msgs=[b"part 2"])
 
                 # send to new leader
                 log.debug("Sending 10 more messages")
@@ -100,8 +103,7 @@ class TestFailover(IntegrationMixin, unittest.TestCase):
     @inlineCallbacks
     def _send_random_messages(self, producer, topic, n):
         for _j in range(n):
-            resp = yield producer.send_messages(
-                topic, msgs=[random_string(10).encode()])
+            resp = yield producer.send_messages(topic, msgs=[random_string(10).encode()])
 
             self.assertFalse(isinstance(resp, Exception))
 
@@ -109,8 +111,7 @@ class TestFailover(IntegrationMixin, unittest.TestCase):
                 self.assertEqual(resp.error, 0)
 
     def _kill_leader(self, topic, partition):
-        leader = self.client.topics_to_brokers[
-            TopicAndPartition(topic, partition)]
+        leader = self.client.topics_to_brokers[TopicAndPartition(topic, partition)]
         broker = self.harness.brokers[leader.node_id]
         broker.stop()
         return (broker, time.time())
@@ -119,9 +120,12 @@ class TestFailover(IntegrationMixin, unittest.TestCase):
     def _count_messages(self, topic):
         log.debug("Counting messages on topic %s", topic)
         messages = []
-        client = KafkaClient(self.harness.bootstrap_hosts,
-                             clientId="CountMessages", timeout=500,
-                             reactor=self.reactor)
+        client = KafkaClient(
+            self.harness.bootstrap_hosts,
+            clientId="CountMessages",
+            timeout=500,
+            reactor=self.reactor,
+        )
 
         try:
             yield ensure_topic_creation(client, topic, fully_replicated=False)
@@ -143,16 +147,17 @@ class TestFailover(IntegrationMixin, unittest.TestCase):
             # Ok, should be safe to get the partitions now...
             partitions = client.topic_partitions[topic]
 
-            requests = [FetchRequest(topic, part, 0, 1024 * 1024)
-                        for part in partitions]
+            requests = [FetchRequest(topic, part, 0, 1024 * 1024) for part in partitions]
             resps = []
             while not resps:
                 try:
                     log.debug("_count_message: Fetching messages")
                     resps = yield client.send_fetch_request(requests, max_wait_time=400)
-                except (NotLeaderForPartitionError,
-                        UnknownTopicOrPartitionError,
-                        KafkaUnavailableError):  # pragma: no cover
+                except (
+                    NotLeaderForPartitionError,
+                    UnknownTopicOrPartitionError,
+                    KafkaUnavailableError,
+                ):  # pragma: no cover
                     log.debug("_count_message: Metadata err, retrying...")
                     yield client.load_metadata_for_topics(topic)
                 except FailedPayloadsError as e:  # pragma: no cover

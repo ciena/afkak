@@ -22,7 +22,7 @@ def _twisted_debug():
     When the ``AFKAK_TWISTED_DEBUG`` environment variable is set, enable
     debugging of deferreds and delayed calls.
     """
-    if os.environ.get('AFKAK_TWISTED_DEBUG'):
+    if os.environ.get("AFKAK_TWISTED_DEBUG"):
         from twisted.internet import defer
         from twisted.internet.base import DelayedCall
 
@@ -34,13 +34,16 @@ def _nose_log_to_file():
     """
     Nose: still somehow a better test runner than Scalatest.
     """
-    path = os.environ.get('AFKAK_TEST_LOG')
+    path = os.environ.get("AFKAK_TEST_LOG")
     if not path:
         return
 
     handler = logging.FileHandler(path)
-    handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)8s %(threadName)8s'
-                                           ' %(name)10s %(filename)s:%(lineno)d: %(message)s'))
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s %(levelname)8s %(threadName)8s" " %(name)10s %(filename)s:%(lineno)d: %(message)s"
+        )
+    )
 
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)

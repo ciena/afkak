@@ -26,14 +26,13 @@ from datetime import datetime
 from functools import partial
 
 import attr
+from ._protocol import KafkaProtocol
+from .common import ClientError, DuplicateRequestError
+from .kafkacodec import KafkaCodec, _ReprRequest
 from twisted.internet.defer import Deferred, fail, maybeDeferred
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.task import deferLater
 from twisted.python.failure import Failure
-
-from ._protocol import KafkaProtocol
-from .common import ClientError, DuplicateRequestError
-from .kafkacodec import KafkaCodec, _ReprRequest
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -70,6 +69,7 @@ class _RequestState(object):
         between responses that were too late vs. responses to requests that
         were never sent.
     """
+
     correlationId = attr.ib()
     request = attr.ib(repr=False)
     expectResponse = attr.ib()
@@ -91,13 +91,13 @@ class _KafkaBrokerClient(ClientFactory):
     a single Kafka broker, reconnecting as needed, over which it sends requests
     and receives responses. Callers make requests with :py:method:`makeRequest`
     """
+
     protocol = KafkaProtocol
 
     # Reduce log spam from twisted
     noisy = False
 
-    def __init__(self, reactor, endpointFactory, brokerMetadata, clientId,
-                 retryPolicy):
+    def __init__(self, reactor, endpointFactory, brokerMetadata, clientId, retryPolicy):
         """
         Create a client for a specific broker
 
@@ -138,11 +138,11 @@ class _KafkaBrokerClient(ClientFactory):
 
     def __repr__(self):
         """return a string representing this KafkaBrokerClient."""
-        return '_KafkaBrokerClient<node_id={} {}:{} {}>'.format(
+        return "_KafkaBrokerClient<node_id={} {}:{} {}>".format(
             self.node_id,
             self.host,
             self.port,
-            'connected' if self.connected() else 'unconnected',
+            "connected" if self.connected() else "unconnected",
         )
 
     def updateMetadata(self, new):
@@ -216,12 +216,15 @@ class _KafkaBrokerClient(ClientFactory):
             # But that's pathological, and the only defense is to track
             # all requestIds sent regardless of whether we expect to see
             # a response, which is effectively a memory leak...
-            raise DuplicateRequestError('Reuse of correlationId={}'.format(correlationId))
+            raise DuplicateRequestError("Reuse of correlationId={}".format(correlationId))
 
         # If we've been told to shutdown (close() called) then fail request
         if self._dDown:
-            return fail(ClientError("Broker client for node_id={} {}:{} has been closed".format(
-                self.node_id, self.host, self.port)))
+            return fail(
+                ClientError(
+                    "Broker client for node_id={} {}:{} has been closed".format(self.node_id, self.host, self.port)
+                )
+            )
 
         # Ok, we are going to save/send it, create a _Request object to track
         self.requests[correlationId] = tReq = _RequestState(
@@ -251,7 +254,7 @@ class _KafkaBrokerClient(ClientFactory):
         load. Requests are not cancelled, so they will be retried.
         """
         if self.proto:
-            log.debug('%r Disconnecting from %r', self, self.proto.transport.getPeer())
+            log.debug("%r Disconnecting from %r", self, self.proto.transport.getPeer())
             self.proto.transport.loseConnection()
 
     def close(self):
@@ -260,13 +263,14 @@ class _KafkaBrokerClient(ClientFactory):
         This terminates any outstanding connection and cancels any pending
         requests.
         """
-        log.debug('%r: close() proto=%r connector=%r', self, self.proto, self.connector)
+        log.debug("%r: close() proto=%r connector=%r", self, self.proto, self.connector)
         assert self._dDown is None
         self._dDown = Deferred()
 
         if self.proto is not None:
             self.proto.transport.loseConnection()
         elif self.connector is not None:
+
             def connectingFailed(reason):
                 """
                 Handle the failure resulting from cancellation.
@@ -275,7 +279,7 @@ class _KafkaBrokerClient(ClientFactory):
                     that's not guaranteed).
                 :returns: `None` to handle the failure
                 """
-                log.debug('%r: connection attempt has been cancelled: %r', self, reason)
+                log.debug("%r: connection attempt has been cancelled: %r", self, reason)
                 self._dDown.callback(None)
 
             self.connector.addErrback(connectingFailed)
@@ -285,8 +289,9 @@ class _KafkaBrokerClient(ClientFactory):
             self._dDown.callback(None)
 
         try:
-            raise ClientError("Broker client for node_id={} {}:{} was closed".format(
-                self.node_id, self.host, self.port))
+            raise ClientError(
+                "Broker client for node_id={} {}:{} was closed".format(self.node_id, self.host, self.port)
+            )
         except Exception:
             reason = Failure()
         # Cancel any requests
@@ -311,7 +316,7 @@ class _KafkaBrokerClient(ClientFactory):
         :param reason:
             Failure that indicates the reason for disconnection.
         """
-        log.info('%r: Connection closed: %r', self, reason)
+        log.info("%r: Connection closed: %r", self, reason)
 
         # Reset our proto so we don't try to send to a down connection
         self.proto = None
@@ -339,12 +344,15 @@ class _KafkaBrokerClient(ClientFactory):
         tReq = self.requests.pop(correlationId, None)
         if tReq is None:
             # The broker sent us a response to a request we didn't make.
-            log.error('Unexpected response with correlationId=%d: %s',
-                      correlationId, _aLongerRepr.repr(response))
+            log.error(
+                "Unexpected response with correlationId=%d: %s",
+                correlationId,
+                _aLongerRepr.repr(response),
+            )
         elif tReq.cancelled is not None:
             now = datetime.utcfromtimestamp(self._reactor.seconds())
             log.debug(
-                'Response to %s arrived %s after it was cancelled (%d bytes)',
+                "Response to %s arrived %s after it was cancelled (%d bytes)",
                 _ReprRequest(tReq.request),
                 now - tReq.cancelled,
                 len(response),
@@ -360,7 +368,7 @@ class _KafkaBrokerClient(ClientFactory):
             tReq.sent = datetime.utcfromtimestamp(self._reactor.seconds())
             self.proto.sendString(tReq.request)
         except Exception as e:
-            log.exception('%r: Failed to send request %r', self, tReq)
+            log.exception("%r: Failed to send request %r", self, tReq)
             del self.requests[tReq.correlationId]
             tReq.d.errback(e)
         else:
@@ -409,6 +417,7 @@ class _KafkaBrokerClient(ClientFactory):
         This routine will repeatedly try to connect to the broker (with backoff
         according to the retry policy) until it succeeds.
         """
+
         def tryConnect():
             self.connector = d = maybeDeferred(connect)
             d.addCallback(cbConnect)
@@ -416,11 +425,11 @@ class _KafkaBrokerClient(ClientFactory):
 
         def connect():
             endpoint = self._endpointFactory(self._reactor, self.host, self.port)
-            log.debug('%r: connecting with %s', self, endpoint)
+            log.debug("%r: connecting with %s", self, endpoint)
             return endpoint.connect(self)
 
         def cbConnect(proto):
-            log.debug('%r: connected to %r', self, proto.transport.getPeer())
+            log.debug("%r: connected to %r", self, proto.transport.getPeer())
             self._failures = 0
             self.connector = None
             self.proto = proto
@@ -431,12 +440,17 @@ class _KafkaBrokerClient(ClientFactory):
 
         def ebConnect(fail):
             if self._dDown:
-                log.debug('%r: breaking connect loop due to %r after close()', self, fail)
+                log.debug("%r: breaking connect loop due to %r after close()", self, fail)
                 return fail
             self._failures += 1
             delay = self._retryPolicy(self._failures)
-            log.debug('%r: failure %d to connect -> %s; retry in %.2f seconds.',
-                      self, self._failures, fail.value, delay)
+            log.debug(
+                "%r: failure %d to connect -> %s; retry in %.2f seconds.",
+                self,
+                self._failures,
+                fail.value,
+                delay,
+            )
 
             self.connector = d = deferLater(self._reactor, delay, lambda: None)
             d.addCallback(cbDelayed)

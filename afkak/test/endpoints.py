@@ -38,12 +38,13 @@ class FailureEndpoint(object):
     """
     Immediately fail every connection attempt.
     """
+
     reactor = attr.ib()
     host = attr.ib()
     port = attr.ib()
 
     def connect(self, protocolFactory):
-        e = IndentationError('failing to connect {}'.format(protocolFactory))
+        e = IndentationError("failing to connect {}".format(protocolFactory))
         return defer.fail(e)
 
 
@@ -54,6 +55,7 @@ class BlackholeEndpoint(object):
     Black-hole every connection attempt by returning a deferred which never
     fires.
     """
+
     reactor = attr.ib()
     host = attr.ib()
     port = attr.ib()
@@ -104,8 +106,9 @@ class Connections(object):
             if fnmatchcase(host, host_pattern):
                 break
         else:
-            raise AssertionError('No match for host pattern {!r}. Searched: {}'.format(
-                host_pattern, pformat(self.connects)))
+            raise AssertionError(
+                "No match for host pattern {!r}. Searched: {}".format(host_pattern, pformat(self.connects))
+            )
         return self.connects.pop(index)
 
     def accept(self, host_pattern):
@@ -125,8 +128,7 @@ class Connections(object):
         server_protocol = KafkaBrokerProtocol()
         client_transport = iosim.FakeTransport(client_protocol, isServer=False, peerAddress=peerAddress)
         server_transport = iosim.FakeTransport(server_protocol, isServer=True)
-        pump = iosim.connect(server_protocol, server_transport,
-                             client_protocol, client_transport)
+        pump = iosim.connect(server_protocol, server_transport, client_protocol, client_transport)
         self._pumps.append(pump)
         d.callback(client_protocol)
         return KafkaConnection(
@@ -162,6 +164,7 @@ class _PuppetEndpoint(object):
     """
     Implementation detail of `Connections`.
     """
+
     connect = attr.ib()
 
 
@@ -170,6 +173,7 @@ class KafkaConnection(object):
     """
     Controller for a connection accepted by `Connections`
     """
+
     #: `twisted.test.iosim.FakeTransport` (client mode)
     client = attr.ib()
     #: `twisted.test.iosim.FakeTransport` (server mode)
@@ -187,8 +191,8 @@ class Request(object):
     client_id = attr.ib()
     rest = attr.ib()
 
-    _req_header = Struct('>hhih')
-    _resp_header = Struct('>i')
+    _req_header = Struct(">hhih")
+    _resp_header = Struct(">i")
 
     @classmethod
     def from_bytes(cls, protocol, request):
@@ -203,7 +207,7 @@ class Request(object):
             client_id = None
         else:
             header_end = size + client_id_len
-            client_id = request[size:header_end].decode('utf-8')
+            client_id = request[size:header_end].decode("utf-8")
         return cls(
             protocol,
             api_key,
@@ -225,8 +229,9 @@ class KafkaBrokerProtocol(Int32StringReceiver):
 
     :ivar requests:
     """
+
     _log = Logger()
-    MAX_LENGTH = 2 ** 16  # Small limit for testing.
+    MAX_LENGTH = 2**16  # Small limit for testing.
     disconnected = None
 
     def connectionMade(self):
@@ -250,6 +255,7 @@ class KafkaBrokerProtocol(Int32StringReceiver):
         Assert that the next request to enter the queue matches the parameters
         and return it.
         """
+
         def assert_(request):
             expected = (
                 api_key,
@@ -262,10 +268,12 @@ class KafkaBrokerProtocol(Int32StringReceiver):
                 request.correlation_id,
             )
             if expected != actual:
-                raise AssertionError((
-                    "Request {!r} doesn't match expectation of api_key={!r},"
-                    " api_version={!r}, correlation_id={!r}"
-                ).format(request, api_key, api_version, correlation_id))
+                raise AssertionError(
+                    (
+                        "Request {!r} doesn't match expectation of api_key={!r},"
+                        " api_version={!r}, correlation_id={!r}"
+                    ).format(request, api_key, api_version, correlation_id)
+                )
 
             return request
 
