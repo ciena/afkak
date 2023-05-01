@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "afkak"
 dynamic = ["version"]
+authors = [{name = "Robert Thille"}]
 requires-python = ">=3.6"
 readme = "README.md"
 description = "Twisted Python client for Apache Kafka"
@@ -32,6 +33,11 @@ dependencies = [
         'attrs >= 19.2.0',  # For functioning auto_exc=True.
         'Twisted >= 18.7.0',  # First release with @inlineCallbacks cancellation.
 ]
+maintainers = [
+        {name = "Ciena"},
+        {name = "Mark Vaught"}
+]
+
 
 [project.urls]
 Home-page = "https://github.com/ciena/afkak"
@@ -48,4 +54,10 @@ version = {attr = "afkak.__version__"}
 
 [tool.setuptools.packages]
 find = {}
+
+[tool.black]
+line-length = 120
+target-version = ['py37', 'py38', 'py39']
+src = "afkak"
+skip-string-normalization = true
 
