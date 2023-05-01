@@ -5,8 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "afkak"
 dynamic = ["version"]
-authors = [{name = "Robert Thille"}]
-requires-python = ">=3.6"
+authors = [
+        {name = "Robert Thille"},
+        {name = "Tom Most"},
+        {name = "Mark Vaught"}
+]
+requires-python = ">=3.7"
+
 readme = "README.md"
 description = "Twisted Python client for Apache Kafka"
 keywords = ["kafka", "distributed messaging", "txkafka"]
@@ -18,7 +23,6 @@ classifiers=[
         'Operating System :: MacOS :: MacOS X',
         'Operating System :: POSIX',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
