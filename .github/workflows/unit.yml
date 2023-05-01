@@ -9,7 +9,7 @@ on:
 jobs:
   unit-tests:
     name: "Python ${{ matrix.python-version }} Unit Tests"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       TOX_SUITE: unit
 
@@ -18,7 +18,7 @@ jobs:
         python-version: ["3.7", "3.8", "3.9", "pypy3.9"]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Install build dependencies
       run: |
@@ -26,7 +26,7 @@ jobs:
         sudo apt-get -y install python3-distutils-extra
 
     - name: "Set up Python ${{ matrix.python-version }}"
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "${{ matrix.python-version }}"
 
@@ -42,7 +42,7 @@ jobs:
 
   lint:
     name: "Python ${{ matrix.python-version }} Lint"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       TOX_SUITE: lint
 
@@ -51,10 +51,10 @@ jobs:
         python-version: ["3.9"]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: "Set up Python ${{ matrix.python-version }}"
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "${{ matrix.python-version }}"
 
@@ -70,9 +70,9 @@ jobs:
 
   docs:
     name: "Documentation"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Cache Intersphinx inventories
       # Cache intersphinx inventories to make the build more robust in
@@ -86,7 +86,7 @@ jobs:
           intersphinx-
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "3.9"
 
@@ -101,12 +101,12 @@ jobs:
 
   packaging:
     name: "Packaging"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: "3.9"
 
