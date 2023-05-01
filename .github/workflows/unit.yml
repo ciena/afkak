@@ -114,8 +114,9 @@ jobs:
       run: |
         set -xeu
         python -VV
-        python -m pip install tox
+        python -m pip install tox build
 
     - name: Check Packaging
-      run        python -m tox -e twine -- pip install -q build && python -m build
+      run: |
+        python -m tox -e twine -- pip install -q build && python -m build
         python -m tox -e twine -- twine check dist/*
