@@ -1245,8 +1245,8 @@ class KafkaClient(object):
             if not expectResponse:
                 continue
             # Successful request/response. Decode it and store by topic/part
-            for response in decode_fn(response):
-                acc[(response.topic, response.partition)] = response
+            for r in decode_fn(response):
+                acc[(r.topic, r.partition)] = r
 
         # Order the accumulated responses by the original key order
         # Note that this scheme will throw away responses which we did
