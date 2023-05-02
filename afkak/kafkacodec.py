@@ -20,6 +20,7 @@ import struct
 import zlib
 from binascii import hexlify
 
+import attr
 from ._util import (
     group_by_topic_and_partition,
     read_int_string,
@@ -148,6 +149,47 @@ class KafkaCodec(object):
     API_VERSIONS_KEY = 18
     CREATE_TOPICS_KEY = 19
     DELETE_TOPICS_KEY = 20
+    DELETE_RECORDS_KEY = 21
+    INIT_PRODUCER_ID_KEY = 22
+    OFFSET_FOR_LEADER_EPOCH_KEY = 23
+    ADD_PARTITIONS_TO_TXN_KEY = 24
+    ADD_OFFSETS_TO_TXN_KEY = 25
+    END_TXN_KEY = 26
+    WRITE_TXN_MARKERS_KEY = 27
+    TXN_OFFSET_COMMIT_KEY = 28
+    DESCRIBE_ACLS_KEY = 29
+    CREATE_ACLS_KEY = 30
+    DELETE_ACLS_KEY = 31
+    DESCRIBE_CONFIGS_KEY = 32
+    ALTER_CONFIGS_KEY = 33
+    ALTER_REPLICA_LOG_DIRS_KEY = 34
+    DESCRIBE_LOG_DIRS_KEY = 35
+    SASL_AUTHENTICATE_KEY = 36
+    CREATE_PARTITIONS_KEY = 37
+    CREATE_DELEGATION_TOKEN_KEY = 38
+    RENEW_DELEGATION_TOKEN_KEY = 39
+    EXPIRE_DELEGATION_TOKEN_KEY = 40
+    DESCRIBE_DELEGATION_TOKEN_KEY = 41
+    DELETE_GROUPS_KEY = 42
+    ELECT_PREFERRED_LEADERS_KEY = 43
+    INCREMENTAL_ALTER_CONFIGS_KEY = 44
+    ALTER_PARTITION_REASSIGNMENTS_KEY = 45
+    LIST_PARTITION_REASSIGNMENTS_KEY = 46
+    OFFSET_DELETE_KEY = 47
+    DESCRIBE_CLIENT_QUOTAS_KEY = 48
+    ALTER_CLIENT_QUOTAS_KEY = 49
+    DESCRIBE_USER_SCRAM_CREDENTIALS_KEY = 50
+    ALTER_USER_SCRAM_CREDENTIALS_KEY = 51
+    DESCRIBE_QUORUM_KEY = 55
+    ALTER_PARTITION_KEY = 56
+    UPDATE_FEATURES_KEY = 57
+    ENVELOPE_KEY = 58
+    DESCRIBE_CLUSTER_KEY = 60
+    DESCRIBE_PRODUCERS_KEY = 61
+    UNREGISTER_BROKER_KEY = 64
+    DESCRIBE_TRANSACTIONS_KEY = 65
+    LIST_TRANSACTIONS_KEY = 66
+    ALLOCATE_PRODUCER_IDS_KEY = 67
 
     _key_to_name = {
         PRODUCE_KEY: "Produce",
@@ -167,6 +209,47 @@ class KafkaCodec(object):
         API_VERSIONS_KEY: "ApiVersions",
         CREATE_TOPICS_KEY: "CreateTopics",
         DELETE_TOPICS_KEY: "DeleteTopics",
+        DELETE_RECORDS_KEY: "DeleteRecords",
+        INIT_PRODUCER_ID_KEY: "InitProducerId",
+        OFFSET_FOR_LEADER_EPOCH_KEY: "OffsetForLeaderEpoch",
+        ADD_PARTITIONS_TO_TXN_KEY: "AddPartitionsToTxn",
+        ADD_OFFSETS_TO_TXN_KEY: "AddOffsetsToTxn",
+        END_TXN_KEY: "EndTxn",
+        WRITE_TXN_MARKERS_KEY: "WriteTxnMarkers",
+        TXN_OFFSET_COMMIT_KEY: "TxnOffsetCommit",
+        DESCRIBE_ACLS_KEY: "DescribeAcls",
+        CREATE_ACLS_KEY: "CreateAcls",
+        DELETE_ACLS_KEY: "DeleteAcls",
+        DESCRIBE_CONFIGS_KEY: "DescribeConfigs",
+        ALTER_CONFIGS_KEY: "AlterConfigs",
+        ALTER_REPLICA_LOG_DIRS_KEY: "AlterReplicaLogDirs",
+        DESCRIBE_LOG_DIRS_KEY: "DescribeLogDirs",
+        SASL_AUTHENTICATE_KEY: "SaslAuthenticate",
+        CREATE_PARTITIONS_KEY: "CreatePartitions",
+        CREATE_DELEGATION_TOKEN_KEY: "CreateDelegationToken",
+        RENEW_DELEGATION_TOKEN_KEY: "RenewDelegationToken",
+        EXPIRE_DELEGATION_TOKEN_KEY: "ExpireDelegationToken",
+        DESCRIBE_DELEGATION_TOKEN_KEY: "DescribeDelegationToken",
+        DELETE_GROUPS_KEY: "DeleteGroups",
+        ELECT_PREFERRED_LEADERS_KEY: "ElectPreferredLeaders",
+        INCREMENTAL_ALTER_CONFIGS_KEY: "IncrementalAlterConfigs",
+        ALTER_PARTITION_REASSIGNMENTS_KEY: "AlterPartitionReassignments",
+        LIST_PARTITION_REASSIGNMENTS_KEY: "ListPartitionReassignments",
+        OFFSET_DELETE_KEY: "OffsetDelete",
+        DESCRIBE_CLIENT_QUOTAS_KEY: "DescribeClientQuotas",
+        ALTER_CLIENT_QUOTAS_KEY: "AlterClientQuotas",
+        DESCRIBE_USER_SCRAM_CREDENTIALS_KEY: "DescribeUserScramCredentials",
+        ALTER_USER_SCRAM_CREDENTIALS_KEY: "AlterUserScramCredentials",
+        DESCRIBE_QUORUM_KEY: "DescribeQuorum",
+        ALTER_PARTITION_KEY: "AlterPartition",
+        UPDATE_FEATURES_KEY: "UpdateFeatures",
+        ENVELOPE_KEY: "Envelope",
+        DESCRIBE_CLUSTER_KEY: "DescribeCluster",
+        DESCRIBE_PRODUCERS_KEY: "DescribeProducers",
+        UNREGISTER_BROKER_KEY: "UnregisterBroker",
+        DESCRIBE_TRANSACTIONS_KEY: "DescribeTransactions",
+        LIST_TRANSACTIONS_KEY: "ListTransactions",
+        ALLOCATE_PRODUCER_IDS_KEY: "AllocateProducerIds",
     }
 
     @classmethod
