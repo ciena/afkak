@@ -15,8 +15,10 @@
 # limitations under the License.
 
 from collections import namedtuple
+from typing import List
 
 import attr
+from twisted.internet.defer import Deferred
 
 # Constants
 DefaultKafkaPort = 9092
@@ -41,44 +43,163 @@ _ALL_CODECS = (CODEC_NONE, CODEC_GZIP, CODEC_SNAPPY)
 ###############
 #   Structs   #
 ###############
+
+
+@attr.frozen(hash=False, eq=False)
+class BaseStruct:
+    """
+    Base class for all structs.
+    This class behaves like a tuple to maintain backwards compatibility
+    """
+
+    def __iter__(self):
+        return iter(attr.astuple(self, recurse=False))
+
+    def __getitem__(self, item):
+        return attr.astuple(self)[item]
+
+    def __len__(self):
+        return len(attr.astuple(self))
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return attr.astuple(self) == attr.astuple(other)
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(attr.astuple(self))
+
+    def __lt__(self, other):
+        if isinstance(other, self.__class__):
+            return attr.astuple(self) < attr.astuple(other)
+        return NotImplemented
+
+
 # SendRequest is used to encapsulate messages and keys prior to
 # creating a message set
-SendRequest = namedtuple("SendRequest", ["topic", "key", "messages", "deferred"])
+@attr.frozen
+class SendRequest(BaseStruct):
+    topic: str = attr.field()
+    key: bytes = attr.field(default=None)
+    messages: list = attr.field(default=None)
+    deferred: Deferred = attr.field(default=None)
+
 
 # Request payloads
-ProduceRequest = namedtuple("ProduceRequest", ["topic", "partition", "messages"])
+@attr.frozen
+class ProduceRequest(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    messages: List[bytes] = attr.field(default=None)
 
-FetchRequest = namedtuple("FetchRequest", ["topic", "partition", "offset", "max_bytes"])
 
-OffsetRequest = namedtuple("OffsetRequest", ["topic", "partition", "time", "max_offsets"])
+# Request payloads
 
-# This is currently for the API_Version=1
-OffsetCommitRequest = namedtuple("OffsetCommitRequest", ["topic", "partition", "offset", "timestamp", "metadata"])
 
-OffsetFetchRequest = namedtuple("OffsetFetchRequest", ["topic", "partition"])
+@attr.frozen
+class FetchRequest(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    offset: int = attr.field()
+    max_bytes: int = attr.field(default=None)
+
+
+@attr.frozen
+class OffsetRequest(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    time: int = attr.field(default=None)
+    max_offsets: int = attr.field(default=None)
+
+
+@attr.frozen
+class OffsetCommitRequest(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    offset: int = attr.field()
+    timestamp: int = attr.field(default=None)
+    metadata: bytes = attr.field(default=None)
+
+
+@attr.frozen
+class OffsetFetchRequest(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+
 
 # Response payloads
-ProduceResponse = namedtuple("ProduceResponse", ["topic", "partition", "error", "offset"])
+@attr.frozen
+class ProduceResponse(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    error: int = attr.field()
+    offset: int = attr.field()
 
-FetchResponse = namedtuple("FetchResponse", ["topic", "partition", "error", "highwaterMark", "messages"])
 
-OffsetResponse = namedtuple("OffsetResponse", ["topic", "partition", "error", "offsets"])
+@attr.frozen
+class FetchResponse(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    error: int = attr.field()
+    highwaterMark: int = attr.field()
+    messages: list = attr.field()
 
-OffsetCommitResponse = namedtuple("OffsetCommitResponse", ["topic", "partition", "error"])
 
-OffsetFetchResponse = namedtuple("OffsetFetchResponse", ["topic", "partition", "offset", "metadata", "error"])
+@attr.frozen
+class OffsetResponse(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    error: int = attr.field()
+    offsets: list = attr.field()
 
-ConsumerMetadataResponse = namedtuple("ConsumerMetadataResponse", ["error", "node_id", "host", "port"])
+
+@attr.frozen
+class OffsetCommitResponse(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    error: int = attr.field()
+
+
+@attr.frozen
+class OffsetFetchResponse(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    offset: int = attr.field()
+    metadata: bytes = attr.field()
+    error: int = attr.field()
+
+
+@attr.frozen
+class ConsumerMetadataResponse(BaseStruct):
+    error: int = attr.field()
+    node_id: int = attr.field()
+    host: str = attr.field()
+    port: int = attr.field()
+
 
 # Metadata tuples
-BrokerMetadata = namedtuple("BrokerMetadata", ["node_id", "host", "port"])
+@attr.frozen
+class BrokerMetadata(BaseStruct):
+    node_id: int = attr.field()
+    host: str = attr.field()
+    port: int = attr.field()
 
-TopicMetadata = namedtuple("TopicMetadata", ["topic", "topic_error_code", "partition_metadata"])
 
-PartitionMetadata = namedtuple(
-    "PartitionMetadata",
-    ["topic", "partition", "partition_error_code", "leader", "replicas", "isr"],
-)
+@attr.frozen
+class TopicMetadata(BaseStruct):
+    topic: str = attr.field()
+    topic_error_code: int = attr.field()
+    partition_metadata: List[bytes] = attr.field()
+
+
+@attr.frozen
+class PartitionMetadata(BaseStruct):
+    topic: str = attr.field()
+    partition: int = attr.field()
+    partition_error_code: int = attr.field()
+    leader: int = attr.field()
+    replicas: list = attr.field()
+    isr: list = attr.field()
 
 
 # Requests and responses for consumer groups
