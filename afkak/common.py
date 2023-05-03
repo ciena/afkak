@@ -202,6 +202,19 @@ class PartitionMetadata(BaseStruct):
     isr: list = attr.field()
 
 
+# ApiVersionRequest and ApiVersionResponse
+@attr.frozen
+class ApiVersionRequest(BaseStruct):
+    api_key: int = attr.field()
+    api_version: int = attr.field()
+
+
+@attr.frozen
+class ApiVersionResponse(BaseStruct):
+    error_code: int = attr.field()
+    api_versions: list = attr.field()
+
+
 # Requests and responses for consumer groups
 @attr.s(frozen=True, slots=True)
 class _JoinGroupRequestProtocol(object):

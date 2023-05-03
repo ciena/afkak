@@ -29,6 +29,7 @@ from .. import KafkaClient
 from ..client import _normalize_hosts
 from ..client import log as client_log
 from ..common import (
+    ApiVersionResponse,
     BrokerMetadata,
     CoordinatorNotAvailable,
     FailedPayloadsError,
@@ -1974,6 +1975,39 @@ class TestKafkaClient(unittest.TestCase):
 
         # Topic with all the partitions having equal replicas & ISRs ARE
         self.assertTrue(client.topic_fully_replicated("Topic3"))
+
+    def test_get_api_versions(self):
+        """
+        The client can get the API versions supported by the brokers.
+        """
+        reactor, connections, client = self.client_with_metadata(brokers=[])
+
+        d = client._get_api_versions()
+        self.assertNoResult(d)
+
+        # Accept connection from the client
+        conn = connections.accept("bootstrap")
+        connections.flush()
+        req = self.successResultOf(conn.server.expectRequest(KafkaCodec.API_VERSIONS_KEY, 0, ANY))
+
+        api_versions = [(0, 0, 8), (1, 0, 11)]
+
+        # Pack response bytes
+        resp_bytes = struct.pack(">hi", 0, len(api_versions))
+        for api_key, min_version, max_version in api_versions:
+            resp_bytes += struct.pack(">hhh", api_key, min_version, max_version)
+
+        req.respond(resp_bytes)
+
+        connections.flush()
+
+        # Check the received response
+        result = self.successResultOf(d)
+        self.assertEqual(result.error_code, 0)
+        print(result.api_versions)
+        self.assertEqual(len(result.api_versions), len(api_versions))
+        expected_resp = ApiVersionResponse(error_code=0, api_versions=api_versions)
+        self.assertEqual(result, expected_resp)
 
 
 class NormalizeHostsTests(unittest.TestCase):

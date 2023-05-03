@@ -29,6 +29,7 @@ from ._protocol import bootstrapFactory as _bootstrapFactory
 from ._util import _coerce_client_id, _coerce_consumer_group, _coerce_topic
 from .brokerclient import _KafkaBrokerClient
 from .common import (
+    ApiVersionRequest,
     BrokerMetadata,
     BrokerResponseError,
     CancelledError,
@@ -779,6 +780,26 @@ class KafkaClient(object):
         returnValue(self._handle_responses(resps, fail_on_error, callback, group))
 
     # # # Private Methods # # #
+
+    @defer.inlineCallbacks
+    def _get_api_versions(self):
+        """
+        Get the API versions supported by the given broker.
+
+        Args:
+            broker (BrokerMetadata): broker to query
+
+        Returns:
+            dict: API versions supported by the broker
+        """
+        requestId = self._next_id()
+
+        req = KafkaCodec.encode_api_versions_request(
+            self._clientIdBytes, requestId, ApiVersionRequest(KafkaCodec.API_VERSIONS_KEY, 0)
+        )
+        resp = yield self._send_broker_unaware_request(requestId, req)
+
+        return KafkaCodec.decode_api_versions_response(resp)
 
     def _handle_responses(self, responses, fail_on_error, callback=None, consumer_group=None):
         out = []

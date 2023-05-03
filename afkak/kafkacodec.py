@@ -38,6 +38,7 @@ from .common import (
     CODEC_GZIP,
     CODEC_NONE,
     CODEC_SNAPPY,
+    ApiVersionResponse,
     BrokerMetadata,
     BufferUnderflowError,
     ChecksumError,
@@ -403,6 +404,44 @@ class KafkaCodec(object):
     ##################
     #   Public API   #
     ##################
+
+    @classmethod
+    def encode_api_versions_request(cls, client_id, correlation_id, api_version_request):
+        """
+        Encode an ApiVersionsRequest. Format::
+
+            ApiVersionsRequest => [ApiVersionRequest]
+                ApiVersionRequest => ApiKey
+        """
+        return KafkaCodec._encode_message_header(client_id, correlation_id, api_version_request.api_key) + struct.pack(
+            ">i", api_version_request.api_version
+        )
+
+    @classmethod
+    def decode_api_versions_response(cls, data):
+        """
+        Decode an ApiVersionsResponse. Format::
+
+            ResponseHeader => CorrelationId
+                CorrelationId => int32
+
+            ApiVersionsResponse => ErrorCode [ApiVersions]
+                ErrorCode => int16
+                ApiVersions => ApiKey MinVersion MaxVersion
+                    ApiKey => int16
+                    MinVersion => int16
+                    MaxVersion => int16
+        """
+        ((correlation_id, error_code), cur) = relative_unpack(">ii", data, 0)
+        print("correlation_id: %d" % correlation_id)
+        print("error_code: %d" % error_code)
+        data = data[2:]  # move past correlation_id and error_code
+
+        api_versions = []
+        while cur < len(data):
+            ((api_key, min_version, max_version), cur) = relative_unpack(">hhh", data, cur)
+            api_versions.append((api_key, min_version, max_version))
+        return ApiVersionResponse(error_code, api_versions)
 
     @classmethod
     def get_response_correlation_id(cls, data):
