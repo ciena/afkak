@@ -50,7 +50,6 @@ class SpawnedService(object):
         proc = subprocess.Popen(
             self._args,
             env=self._env,
-            bufsize=1,  # Line buffered.
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
