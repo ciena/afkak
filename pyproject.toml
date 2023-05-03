@@ -6,9 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "afkak"
 dynamic = ["version"]
 authors = [
-        {name = "Robert Thille"},
-        {name = "Tom Most"},
-        {name = "Mark Vaught"}
+    {name = "Robert Thille"},
+    {name = "Tom Most"},
+    {name = "Mark Vaught"}
 ]
 requires-python = ">=3.7"
 
@@ -16,30 +16,30 @@ readme = "README.md"
 description = "Twisted Python client for Apache Kafka"
 keywords = ["kafka", "distributed messaging", "txkafka"]
 classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Framework :: Twisted',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
-        'Operating System :: MacOS :: MacOS X',
-        'Operating System :: POSIX',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy',
-        'Topic :: Communications',
-        'Topic :: System :: Distributed Computing',
+    'Development Status :: 5 - Production/Stable',
+    'Framework :: Twisted',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: Apache Software License',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: POSIX',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: Implementation :: CPython',
+    'Programming Language :: Python :: Implementation :: PyPy',
+    'Topic :: Communications',
+    'Topic :: System :: Distributed Computing',
 ]
 
 dependencies = [
-        'attrs >= 19.2.0',  # For functioning auto_exc=True.
-        'Twisted >= 18.7.0',  # First release with @inlineCallbacks cancellation.
+    'attrs >= 19.2.0',  # For functioning auto_exc=True.
+    'Twisted >= 18.7.0',  # First release with @inlineCallbacks cancellation.
 ]
 maintainers = [
-        {name = "Ciena"},
-        {name = "Mark Vaught"}
+    {name = "Ciena"},
+    {name = "Mark Vaught"}
 ]
 
 
@@ -59,9 +59,28 @@ version = {attr = "afkak.__version__"}
 [tool.setuptools.packages]
 find = {}
 
+# format and linting
+
 [tool.black]
 line-length = 120
-target-version = ['py37', 'py38', 'py39']
 src = "afkak"
 skip-string-normalization=true
 
+[tool.ruff]
+fixable = []
+target-version = "py39"
+select = [
+    'E', # pycodestyle errors
+    'F', # flake8 errors
+    'W', # pycodestyle warnings
+    'B', # bugbear
+    'TCH', # flake8-type checking
+]
+
+line-length = 120
+
+show-fixes = true
+
+ignore = [
+    'B028', # ignore stacklevel warnings
+]

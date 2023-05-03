@@ -20,7 +20,6 @@ import struct
 import zlib
 from binascii import hexlify
 
-import attr
 from ._util import (
     group_by_topic_and_partition,
     read_int_string,
@@ -362,7 +361,7 @@ class KafkaCodec(object):
                 if read_message is False:
                     # If we get a partial read of a message, but haven't
                     # yielded anything there's a problem
-                    raise ConsumerFetchSizeTooSmall()
+                    raise ConsumerFetchSizeTooSmall() from None
                 else:
                     return
 

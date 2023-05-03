@@ -658,7 +658,7 @@ class _ConsumerProtocol(object):
         try:
             all_topic_partitions = [(topic, partition) for topic in all_topics for partition in topic_partitions[topic]]
         except KeyError:
-            raise _NeedTopicPartitions(all_topics)
+            raise _NeedTopicPartitions(all_topics) from None
 
         all_topic_partitions.sort()
 

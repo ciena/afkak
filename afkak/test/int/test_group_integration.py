@@ -330,7 +330,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         self.addCleanup(coord.stop)
 
         # FIXME: This doesn't seem to get fired reliably.
-        coord_start_d
+        coord_start_d # noqa
         # self.addCleanup(lambda: coord_start_d)
 
         yield de
@@ -357,7 +357,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         self.addCleanup(coord2.stop)
 
         # FIXME: This doesn't seem to get fired reliably
-        coord2_start_d
+        coord2_start_d # noqa
         # self.addCleanup(lambda: coord2_start_d)
 
         yield de
@@ -459,7 +459,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         coord_start_d = coord.start()
         self.addCleanup(coord.stop)
         # FIXME: This doesn't seem to get fired reliably.
-        coord_start_d
+        coord_start_d # noqa
         # self.addCleanup(lambda: coord_start_d)
 
         yield wait_for_assignments(self.topic, self.num_partitions, [coord])
@@ -486,7 +486,7 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         coord2_start_d = coord2.start()
         self.addCleanup(coord2.stop)
         # FIXME: This doesn't seem to get fired reliably.
-        coord2_start_d
+        coord2_start_d # noqa
         # self.addCleanup(lambda: coord2_start_d)
 
         # send some messages and see that they're processed
