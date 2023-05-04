@@ -710,8 +710,8 @@ class ConsumerGroup(Coordinator):
         unexpected kafka errors
         Default: 10000.
     """
-    def __init__(self, client, group_id, topics, processor,
-                 consumer_kwargs=None, **kwargs):
+
+    def __init__(self, client, group_id, topics, processor, consumer_kwargs=None, **kwargs):
         super(ConsumerGroup, self).__init__(client, group_id, topics, **kwargs)
         self.processor = processor
         if not consumer_kwargs:
