@@ -654,11 +654,9 @@ class _ConsumerProtocol(object):
 
 
 class ConsumerGroup(Coordinator):
-    def __init__(self, client, group_id, topics, processor,
-                 consumer_kwargs=None, **kwargs):
-        """
-        Coordinated consumer group implementation. Consuming the partitions
-        on the topic(s) are load-balanced by Kafka among active connections.
+    """
+    Coordinated consumer group implementation. Consuming the partitions
+    on the topic(s) are load-balanced by Kafka among active connections.
 
     This is implemented by creating one :class:`afkak.Consumer` per
     topic partition. You can customise the behavior of these consumers via the
