@@ -171,3 +171,13 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         # Check we received the proper metadata in the response
         self.assertEqual(resp.metadata, metadata)
         log.debug("test_commit_fetch_offsets: Test Complete.")
+
+    @kafka_versions("1.1.1")
+    @inlineCallbacks
+    def test_get_api_versions(self):
+        """
+        Get the API versions from the broker.
+        """
+        resp = yield self.client._get_api_versions()
+
+        assert len(resp.api_versions) == 43  # 43 is the number of APIs in 1.1.1

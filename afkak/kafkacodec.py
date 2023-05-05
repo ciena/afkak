@@ -432,14 +432,13 @@ class KafkaCodec(object):
                     MaxVersion => int16
         """
         ((correlation_id, error_code), cur) = relative_unpack(">ii", data, 0)
-        print("correlation_id: %d" % correlation_id)
-        print("error_code: %d" % error_code)
         data = data[2:]  # move past correlation_id and error_code
 
         api_versions = []
         while cur < len(data):
-            ((api_key, min_version, max_version), cur) = relative_unpack(">hhh", data, cur)
-            api_versions.append((api_key, min_version, max_version))
+            for api_key, min_version, max_version in struct.iter_unpack(">hhh", data[cur:]):
+                api_versions.append((api_key, min_version, max_version))
+                cur += 6
         return ApiVersionResponse(error_code, api_versions)
 
     @classmethod

@@ -2004,7 +2004,6 @@ class TestKafkaClient(unittest.TestCase):
         # Check the received response
         result = self.successResultOf(d)
         self.assertEqual(result.error_code, 0)
-        print(result.api_versions)
         self.assertEqual(len(result.api_versions), len(api_versions))
         expected_resp = ApiVersionResponse(error_code=0, api_versions=api_versions)
         self.assertEqual(result, expected_resp)
