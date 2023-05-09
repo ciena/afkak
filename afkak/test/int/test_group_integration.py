@@ -513,9 +513,15 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
             [value] = yield self.send_messages(part, ["sentinel"])
             pending_sentinels[part] = value
         while pending_sentinels:
-            [message] = yield record_stream.get()
-            if pending_sentinels.get(message.partition) == message.message.value:
-                del pending_sentinels[message.partition]
+            message = yield record_stream.get()
+            matching_msgs = [
+                msg
+                for msg in message
+                for part, value in pending_sentinels.items()
+                if msg.partition == part and msg.message.value == value
+            ]
+            for msg in matching_msgs:
+                del pending_sentinels[msg.partition]
 
         # after the cluster has re-formed, send some more messages
         # and check that we get them too (and don't get the old messages again)
