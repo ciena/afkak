@@ -79,6 +79,16 @@ class BaseStruct:
 # creating a message set
 @attr.frozen
 class SendRequest(BaseStruct):
+    """
+    Request to send a message to a topic
+
+    Attributes:
+        topic (str): The topic this request is for
+        key (bytes): The key for the message
+        messages (List[bytes]): The messages to include in the request
+        deferred (Deferred): The deferred to fire when the request is complete
+    """
+
     topic: str = attr.field()
     key: bytes = attr.field(default=None)
     messages: list = attr.field(default=None)
@@ -88,6 +98,15 @@ class SendRequest(BaseStruct):
 # Request payloads
 @attr.frozen
 class ProduceRequest(BaseStruct):
+    """
+    Request to produce a message to a topic/partition
+
+    Attributes:
+        topic (str): The topic this request is for
+        partition (int): The partition this request is for
+        messages (List[bytes]): The messages to include in the request
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     messages: List[bytes] = attr.field(default=None)
@@ -98,6 +117,16 @@ class ProduceRequest(BaseStruct):
 
 @attr.frozen
 class FetchRequest(BaseStruct):
+    """
+    Request to fetch a set of messages from a topic/partition
+
+    Attributes:
+        topic (str): The topic this request is for
+        partition (int): The partition this request is for
+        offset (int): The offset to begin this fetch from
+        max_bytes (int): The maximum bytes to include in the message set for this partition
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     offset: int = attr.field()
@@ -106,6 +135,16 @@ class FetchRequest(BaseStruct):
 
 @attr.frozen
 class OffsetRequest(BaseStruct):
+    """
+    Request to fetch the last committed offset for a set of partitions
+
+    Attributes:
+        topic (str): The topic this request is for
+        partition (int): The partition this request is for
+        time (int): The time to use for fetching offsets
+        max_offsets (int): The maximum number of offsets to return
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     time: int = attr.field(default=None)
@@ -114,6 +153,18 @@ class OffsetRequest(BaseStruct):
 
 @attr.frozen
 class OffsetCommitRequest(BaseStruct):
+    """
+    Request to commit a specific offset for a topic/partition
+
+    Attributes:
+        topic (str): The topic this request is for
+        partition (int): The partition this request is for
+        offset (int): The offset to commit
+        timestamp (int): The timestamp of the commit
+        metadata (bytes): Any associated metadata the client wants to keep
+
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     offset: int = attr.field()
@@ -123,6 +174,15 @@ class OffsetCommitRequest(BaseStruct):
 
 @attr.frozen
 class OffsetFetchRequest(BaseStruct):
+    """
+    Request to fetch the last committed offset for a set of partitions
+
+    Attributes:
+        topic (str): The topic this request is for
+        partition (int): The partition this request is for
+
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
 
@@ -130,6 +190,17 @@ class OffsetFetchRequest(BaseStruct):
 # Response payloads
 @attr.frozen
 class ProduceResponse(BaseStruct):
+    """
+    Response from a ProduceRequest
+
+    Attributes:
+        topic (str): The topic this response entry is for
+        partition (int): The partition this response entry is for
+        error (int): The error code for this request
+        offset (int): The offset of the message that was produced
+
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     error: int = attr.field()
@@ -138,6 +209,18 @@ class ProduceResponse(BaseStruct):
 
 @attr.frozen
 class FetchResponse(BaseStruct):
+    """
+    Response from a FetchRequest
+
+    Attributes:
+        topic (str): The topic this response entry is for
+        partition (int): The partition this response entry is for
+        error (int): The error code for this request
+        highwaterMark (int): The offset of the last message in the partition
+        messages (list): The messages returned by the request
+
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     error: int = attr.field()
@@ -147,6 +230,17 @@ class FetchResponse(BaseStruct):
 
 @attr.frozen
 class OffsetResponse(BaseStruct):
+    """
+    Response from an OffsetRequest
+
+    Attributes:
+        topic (str): The topic this response entry is for
+        partition (int): The partition this response entry is for
+        error (int): The error code for this request
+        offsets (list): The offsets returned by the request
+
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     error: int = attr.field()
@@ -155,6 +249,16 @@ class OffsetResponse(BaseStruct):
 
 @attr.frozen
 class OffsetCommitResponse(BaseStruct):
+    """
+    Response from an OffsetCommitRequest
+
+    Attributes:
+        topic (str): The topic this response entry is for
+        partition (int): The partition this response entry is for
+        error (int): The error code for this request
+
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     error: int = attr.field()
@@ -162,6 +266,18 @@ class OffsetCommitResponse(BaseStruct):
 
 @attr.frozen
 class OffsetFetchResponse(BaseStruct):
+    """
+    Response from an OffsetFetchRequest
+
+    Attributes:
+        topic (str): The topic this response entry is for
+        partition (int): The partition this response entry is for
+        offset (int): The offset for this partition
+        metadata (bytes): Any associated metadata the server has for this partition
+        error (int): The error code for this request
+
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     offset: int = attr.field()
@@ -171,6 +287,17 @@ class OffsetFetchResponse(BaseStruct):
 
 @attr.frozen
 class ConsumerMetadataResponse(BaseStruct):
+    """
+    Response from a ConsumerMetadataRequest
+
+    Attributes:
+        error (int): The error code for this request
+        node_id (int): The node id for the coordinator
+        host (str): The hostname of the coordinator
+        port (int): The port for the coordinator
+
+    """
+
     error: int = attr.field()
     node_id: int = attr.field()
     host: str = attr.field()
@@ -180,6 +307,16 @@ class ConsumerMetadataResponse(BaseStruct):
 # Metadata tuples
 @attr.frozen
 class BrokerMetadata(BaseStruct):
+    """
+    Metadata for a single broker
+
+    Attributes:
+        node_id (int): The node id for this broker
+        host (str): The hostname of this broker
+        port (int): The port for this broker
+
+    """
+
     node_id: int = attr.field()
     host: str = attr.field()
     port: int = attr.field()
@@ -187,6 +324,16 @@ class BrokerMetadata(BaseStruct):
 
 @attr.frozen
 class TopicMetadata(BaseStruct):
+    """
+    Metadata for a single topic
+
+    Attributes:
+        topic (str): The topic name
+        topic_error_code (int): The error code for this topic
+        partition_metadata (list): The set of all partitions for this topic
+
+    """
+
     topic: str = attr.field()
     topic_error_code: int = attr.field()
     partition_metadata: List[bytes] = attr.field()
@@ -194,6 +341,19 @@ class TopicMetadata(BaseStruct):
 
 @attr.frozen
 class PartitionMetadata(BaseStruct):
+    """
+    Metadata for a single partition
+
+    Attributes:
+        topic (str): The topic name
+        partition (int): The partition id
+        partition_error_code (int): The error code for this partition
+        leader (int): The node id for the leader
+        replicas (list): The set of all nodes that host this partition
+        isr (list): The set of nodes that are in sync with the leader for this partition
+
+    """
+
     topic: str = attr.field()
     partition: int = attr.field()
     partition_error_code: int = attr.field()
@@ -205,12 +365,30 @@ class PartitionMetadata(BaseStruct):
 # ApiVersionRequest and ApiVersionResponse
 @attr.frozen
 class ApiVersionRequest(BaseStruct):
+    """
+    Request to discover supported API versions
+
+    Attributes:
+        api_key (int): The API key
+        api_version (int): The API version
+
+    """
+
     api_key: int = attr.field()
     api_version: int = attr.field()
 
 
 @attr.frozen
 class ApiVersionResponse(BaseStruct):
+    """
+    Response from an ApiVersionRequest
+
+    Attributes:
+        error_code (int): Response error code
+        api_versions (list): List of supported API versions
+
+    """
+
     error_code: int = attr.field()
     api_versions: list = attr.field()
 
@@ -218,13 +396,30 @@ class ApiVersionResponse(BaseStruct):
 # Requests and responses for consumer groups
 @attr.s(frozen=True, slots=True)
 class _JoinGroupRequestProtocol(object):
+    """
+    A protocol that the consumer supports.
+
+    Attributes:
+        protocol_name (str): The name of the protocol
+        protocol_metadata (bytes): The encoded metadata for the protocol
+    """
+
     protocol_name = attr.ib()
     protocol_metadata = attr.ib()
 
 
 @attr.s(frozen=True, slots=True)
 class _JoinGroupProtocolMetadata(object):
-    verison = attr.ib()
+    """
+    The metadata for a protocol that the consumer supports.
+
+    Attributes:
+        version (int): The version of the protocol
+        subscriptions (list): The list of topics that the consumer wants to subscribe to
+        user_data (bytes): Any additional data that the consumer wants to send to the group coordinator
+    """
+
+    version = attr.ib()
     subscriptions = attr.ib()
     user_data = attr.ib()
 
@@ -233,6 +428,15 @@ class _JoinGroupProtocolMetadata(object):
 class _JoinGroupRequest(object):
     """
     A request to join a coordinator group.
+
+    Attributes:
+        group (str): The name of the group to join
+        session_timeout (int): The time in milliseconds that the coordinator will wait for the consumer to send a
+            JoinGroupResponse
+        member_id (str): The unique identifier for the consumer. This is generated by the consumer and should be
+            unique across all consumers.
+        protocol_type (str): The type of protocol that the consumer supports
+        group_protocols (list): The list of protocols that the consumer supports
     """
 
     group = attr.ib()
@@ -244,12 +448,34 @@ class _JoinGroupRequest(object):
 
 @attr.s(frozen=True, slots=True)
 class _JoinGroupResponseMember(object):
+    """
+    A member of a consumer group.
+
+    Attributes:
+        member_id (str): The unique identifier for the consumer. This is generated by the consumer and should be
+            unique across all consumers.
+        member_metadata (bytes): The encoded metadata for the consumer
+    """
+
     member_id = attr.ib()
     member_metadata = attr.ib()
 
 
 @attr.s(frozen=True, slots=True)
 class _JoinGroupResponse(object):
+    """
+    A response from a coordinator group.
+
+    Attributes:
+        error (int): The error code for the request
+        generation_id (int): The generation id for the consumer group
+        group_protocol (str): The protocol that the group coordinator selected
+        leader_id (str): The unique identifier for the leader of the consumer group
+        member_id (str): The unique identifier for the consumer. This is generated by the consumer and should be
+            unique across all consumers.
+        members (list): The list of members in the consumer group
+    """
+
     error = attr.ib()
     generation_id = attr.ib()
     group_protocol = attr.ib()
@@ -260,12 +486,30 @@ class _JoinGroupResponse(object):
 
 @attr.s(frozen=True, slots=True)
 class _SyncGroupRequestMember(object):
+    """
+    A member of a consumer group.
+
+    Attributes:
+        member_id (str): The unique identifier for the consumer. This is generated by the consumer and should be
+            unique across all consumers.
+        member_metadata (bytes): The encoded metadata for the consumer
+    """
+
     member_id = attr.ib()
     member_metadata = attr.ib()
 
 
 @attr.s(frozen=True, slots=True)
 class _SyncGroupMemberAssignment(object):
+    """
+    The assignment for a member of a consumer group.
+
+    Attributes:
+        version (int): The version of the assignment
+        assignments (list): The list of partitions that the consumer is assigned to
+        user_data (bytes): Any additional data that the consumer wants to send to the group coordinator
+    """
+
     version = attr.ib()
     assignments = attr.ib()
     user_data = attr.ib()
@@ -273,6 +517,17 @@ class _SyncGroupMemberAssignment(object):
 
 @attr.s(frozen=True, slots=True)
 class _SyncGroupRequest(object):
+    """
+    A request to sync with a consumer group.
+
+    Attributes:
+        group (str): The name of the group to sync with
+        generation_id (int): The generation id for the consumer group
+        member_id (str): The unique identifier for the consumer. This is generated by the consumer and should be
+            unique across all consumers.
+        group_assignment (dict): The assignment for each member of the consumer group
+    """
+
     group = attr.ib()
     generation_id = attr.ib()
     member_id = attr.ib()
@@ -281,25 +536,123 @@ class _SyncGroupRequest(object):
 
 @attr.s(frozen=True, slots=True)
 class _SyncGroupResponse(object):
+    """
+    A response from a consumer group sync.
+
+    Attributes:
+        error (int): The error code for the request
+        member_assignment (bytes): The encoded assignment for the consumer
+    """
+
     error = attr.ib()
     member_assignment = attr.ib()
 
 
-_HeartbeatRequest = namedtuple("_HeartbeatRequest", ["group", "generation_id", "member_id"])
-_HeartbeatResponse = namedtuple("_HeartbeatResponse", ["error"])
+@attr.s(frozen=True, slots=True)
+class _HeartbeatRequest(BaseStruct):
+    """
+    A request to send a heartbeat to a consumer group coordinator.
 
-_LeaveGroupRequest = namedtuple("_LeaveGroupRequest", ["group", "member_id"])
-_LeaveGroupResponse = namedtuple("_LeaveGroupResponse", ["error"])
+    Attributes:
+        group (str): The name of the group to send a heartbeat to
+        generation_id (int): The generation id for the consumer group
+        member_id (str): The unique identifier for the consumer. This is generated by the consumer and should be
+            unique across all consumers.
+    """
+
+    group = attr.ib()
+    generation_id = attr.ib()
+    member_id = attr.ib()
+
+
+@attr.s(frozen=True, slots=True)
+class _HeartbeatResponse(BaseStruct):
+    """
+    A response from a consumer group heartbeat.
+
+    Attributes:
+        error (int): The error code for the request
+    """
+
+    error = attr.ib()
+
+
+@attr.s(frozen=True, slots=True)
+class _LeaveGroupRequest(BaseStruct):
+    """
+    A request to leave a consumer group.
+
+    Attributes:
+        group (str): The name of the group to leave
+        member_id (str): The unique identifier for the consumer. This is generated by the consumer and should be
+            unique across all consumers.
+    """
+
+    group = attr.ib()
+    member_id = attr.ib()
+
+
+@attr.s(frozen=True, slots=True)
+class _LeaveGroupResponse(BaseStruct):
+    """
+    A response from a consumer group leave.
+
+    Attributes:
+        error (int): The error code for the request
+    """
+
+    error = attr.ib()
+
 
 # Other useful structs
-OffsetAndMessage = namedtuple("OffsetAndMessage", ["offset", "message"])
+@attr.s(frozen=True, slots=True)
+class OffsetAndMessage(BaseStruct):
+    """
+    A message with an associated offset.
+
+    Attributes:
+        offset (int): The offset of the message
+        message (kafka.protocol.message.Message): The message
+    """
+
+    offset = attr.ib()
+    message = attr.ib()
 
 
-TopicAndPartition = namedtuple("TopicAndPartition", ["topic", "partition"])
-SourcedMessage = namedtuple("SourcedMessage", TopicAndPartition._fields + OffsetAndMessage._fields)
+@attr.s(frozen=True, slots=True)
+class TopicAndPartition(BaseStruct):
+    """
+    A topic and partition.
+
+    Attributes:
+        topic (str): The name of the topic
+        partition (int): The partition id
+    """
+
+    topic = attr.ib()
+    partition = attr.ib()
 
 
-class Message(namedtuple("Message", ["magic", "attributes", "key", "value"])):
+@attr.s(frozen=True, slots=True)
+class SourcedMessage(BaseStruct):
+    """
+    A message with an associated offset, topic, and partition.
+
+    Attributes:
+        topic (str): The name of the topic
+        partition (int): The partition id
+        offset (int): The offset of the message
+        message (kafka.protocol.message.Message): The message
+    """
+
+    topic = attr.ib()
+    partition = attr.ib()
+    offset = attr.ib()
+    message = attr.ib()
+
+
+@attr.s(frozen=True, slots=True, repr=False)
+class Message(BaseStruct):
     """
     A Kafka `message`_ in format 0.
 
@@ -314,7 +667,10 @@ class Message(namedtuple("Message", ["magic", "attributes", "key", "value"])):
     .. _message: https://kafka.apache.org/documentation/#messageset
     """
 
-    __slots__ = ()
+    magic = attr.field()
+    attributes = attr.field()
+    key = attr.field()
+    value = attr.field()
 
     def __repr__(self):
         bits = ["<Message v0"]

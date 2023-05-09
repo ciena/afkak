@@ -30,6 +30,7 @@ from ._util import _coerce_client_id, _coerce_consumer_group, _coerce_topic
 from .brokerclient import _KafkaBrokerClient
 from .common import (
     ApiVersionRequest,
+    ApiVersionResponse,
     BrokerMetadata,
     BrokerResponseError,
     CancelledError,
@@ -782,15 +783,10 @@ class KafkaClient(object):
     # # # Private Methods # # #
 
     @defer.inlineCallbacks
-    def _get_api_versions(self):
+    def _get_api_versions(self) -> ApiVersionResponse:
         """
         Get the API versions supported by the given broker.
 
-        Args:
-            broker (BrokerMetadata): broker to query
-
-        Returns:
-            dict: API versions supported by the broker
         """
         requestId = self._next_id()
 
