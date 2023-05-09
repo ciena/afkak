@@ -17,7 +17,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Afkak'
-copyright = u'2015–2019 Ciena Corporation'
+copyright = u'2015–2023 Ciena Corporation'
 author = u'Robert Thille'
 
 # The version info for the project you're documenting, acts as replacement for

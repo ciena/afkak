@@ -101,7 +101,7 @@ class _ReprRequest:
     ListOffsetsRequest0 correlationId=16 (8 bytes)
     """
 
-    _request: bytes = attr.field()
+    _request: bytes = attr.ib()
 
     _REQUEST_HEADER = struct.Struct(">hhi")
 
@@ -438,10 +438,10 @@ class KafkaCodec(object):
         data = data[2:]  # move past correlation_id and error_code
 
         api_versions = []
-        while cur < len(data):
-            for api_key, min_version, max_version in struct.iter_unpack(">hhh", data[cur:]):
-                api_versions.append((api_key, min_version, max_version))
-                cur += 6
+
+        for api_key, min_version, max_version in struct.iter_unpack(">hhh", data[cur:]):
+            api_versions.append((api_key, min_version, max_version))
+            cur += 6
         return ApiVersionResponse(error_code, api_versions)
 
     @classmethod
