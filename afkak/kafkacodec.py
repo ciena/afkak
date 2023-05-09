@@ -19,7 +19,9 @@ import logging
 import struct
 import zlib
 from binascii import hexlify
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
+import attr
 from ._util import (
     group_by_topic_and_partition,
     read_int_string,
@@ -37,30 +39,40 @@ from .common import (
     CODEC_GZIP,
     CODEC_NONE,
     CODEC_SNAPPY,
+    ApiVersionRequest,
     ApiVersionResponse,
     BrokerMetadata,
     BufferUnderflowError,
     ChecksumError,
     ConsumerFetchSizeTooSmall,
     ConsumerMetadataResponse,
+    FetchRequest,
     FetchResponse,
     InvalidMessageError,
     Message,
     OffsetAndMessage,
+    OffsetCommitRequest,
     OffsetCommitResponse,
+    OffsetFetchRequest,
     OffsetFetchResponse,
+    OffsetRequest,
     OffsetResponse,
     PartitionMetadata,
+    ProduceRequest,
     ProduceResponse,
     ProtocolError,
     TopicMetadata,
     UnsupportedCodecError,
+    _HeartbeatRequest,
     _HeartbeatResponse,
     _JoinGroupProtocolMetadata,
+    _JoinGroupRequest,
     _JoinGroupResponse,
     _JoinGroupResponseMember,
+    _LeaveGroupRequest,
     _LeaveGroupResponse,
     _SyncGroupMemberAssignment,
+    _SyncGroupRequest,
     _SyncGroupResponse,
 )
 from twisted.python.compat import nativeString
@@ -79,47 +91,36 @@ MAX_BROKERS = 1024
 DEFAULT_REPLICAS_ACK_TIMEOUT_MSECS = 1000
 
 
-class _ReprRequest(object):
-    r"""
+@attr.define
+class _ReprRequest:
+    """
     Wrapper for request `bytes` that gives it a comprehensible repr for use in
     log messages.
 
     >>> _ReprRequest(b'\0\x02\0\0\0\0\0\xff')
     ListOffsetsRequest0 correlationId=16 (8 bytes)
     """
-    __slots__ = "_request"
 
-    _struct = struct.Struct(">hhi")
+    _request: bytes = attr.field()
 
-    def __init__(self, request):
-        assert isinstance(request, bytes), "request must be bytes, not {!r}".format(request)
-        self._request = request
+    _REQUEST_HEADER = struct.Struct(">hhi")
+
+    def __attrs_post_init__(self):
+        if not isinstance(self._request, bytes):
+            raise TypeError(f"request must be bytes, not {type(self._request).__name__}")
 
     def __str__(self):
         length = len(self._request)
         if length < 8:
-            return "invalid request ({})".format(hexlify(self._request).decode("ascii"))
+            return f"invalid request ({hexlify(self._request).decode('ascii')})"
 
-        key, version, correlation_id = self._struct.unpack_from(self._request)
+        key, version, correlation_id = self._REQUEST_HEADER.unpack_from(self._request)
         try:
             key_name = KafkaCodec.key_name(key)
         except KeyError:
-            return "request key={}v{} correlationId={} ({:,d} bytes)".format(
-                key,
-                version,
-                correlation_id,
-                length,
-            )
+            return f"request key={key}v{version} correlationId={correlation_id} ({length:,d} bytes)"
 
-        return "{}Request{} correlationId={} ({:,d} bytes)".format(
-            key_name,
-            version,
-            correlation_id,
-            length,
-        )
-
-    def __repr__(self):
-        return self.__str__()
+        return f"{key_name}Request{version} correlationId={correlation_id} ({length:,d} bytes)"
 
 
 class KafkaCodec(object):
@@ -283,7 +284,7 @@ class KafkaCodec(object):
         )  # ClientId
 
     @classmethod
-    def _encode_message_set(cls, messages, offset=None):
+    def _encode_message_set(cls, messages: List[Message], offset: int = None):
         """
         Encode a MessageSet. Unlike other arrays in the protocol,
         MessageSets are not length-prefixed.  Format::
@@ -305,7 +306,7 @@ class KafkaCodec(object):
         return b"".join(message_set)
 
     @classmethod
-    def _encode_message(cls, message):
+    def _encode_message(cls, message: Message):
         """
         Encode a single message.
 
@@ -330,7 +331,7 @@ class KafkaCodec(object):
         return msg
 
     @classmethod
-    def _decode_message_set_iter(cls, data):
+    def _decode_message_set_iter(cls, data: bytes) -> Iterator[Tuple[int, Message]]:
         """
         Iteratively decode a MessageSet
 
@@ -366,7 +367,7 @@ class KafkaCodec(object):
                     return
 
     @classmethod
-    def _decode_message(cls, data, offset):
+    def _decode_message(cls, data: bytes, offset: int) -> Iterator[Tuple[int, Message]]:
         """
         Decode a single Message
 
@@ -385,17 +386,17 @@ class KafkaCodec(object):
         codec = att & ATTRIBUTE_CODEC_MASK
 
         if codec == CODEC_NONE:
-            yield (offset, Message(magic, att, key, value))
+            yield offset, Message(magic, att, key, value)
 
         elif codec == CODEC_GZIP:
             gz = gzip_decode(value)
             for offset, msg in KafkaCodec._decode_message_set_iter(gz):
-                yield (offset, msg)
+                yield offset, msg
 
         elif codec == CODEC_SNAPPY:
             snp = snappy_decode(value)
             for offset, msg in KafkaCodec._decode_message_set_iter(snp):
-                yield (offset, msg)
+                yield offset, msg
 
         else:
             raise ProtocolError("Unsupported codec 0b{:b}".format(codec))
@@ -405,19 +406,21 @@ class KafkaCodec(object):
     ##################
 
     @classmethod
-    def encode_api_versions_request(cls, client_id, correlation_id, api_version_request):
+    def encode_api_versions_request(
+        cls, client_id: bytes, correlation_id: int, api_version_request: ApiVersionRequest
+    ) -> bytes:
         """
         Encode an ApiVersionsRequest. Format::
 
             ApiVersionsRequest => [ApiVersionRequest]
                 ApiVersionRequest => ApiKey
         """
-        return KafkaCodec._encode_message_header(client_id, correlation_id, api_version_request.api_key) + struct.pack(
+        return cls._encode_message_header(client_id, correlation_id, api_version_request.api_key) + struct.pack(
             ">i", api_version_request.api_version
         )
 
     @classmethod
-    def decode_api_versions_response(cls, data):
+    def decode_api_versions_response(cls, data: bytes) -> ApiVersionResponse:
         """
         Decode an ApiVersionsResponse. Format::
 
@@ -442,7 +445,7 @@ class KafkaCodec(object):
         return ApiVersionResponse(error_code, api_versions)
 
     @classmethod
-    def get_response_correlation_id(cls, data):
+    def get_response_correlation_id(cls, data: bytes) -> int:
         """
         return just the correlationId part of the response
 
@@ -454,11 +457,11 @@ class KafkaCodec(object):
     @classmethod
     def encode_produce_request(
         cls,
-        client_id,
-        correlation_id,
-        payloads=None,
-        acks=1,
-        timeout=DEFAULT_REPLICAS_ACK_TIMEOUT_MSECS,
+        client_id: bytes,
+        correlation_id: int,
+        payloads: Optional[List[ProduceRequest]] = None,
+        acks: int = 1,
+        timeout: int = DEFAULT_REPLICAS_ACK_TIMEOUT_MSECS,
     ):
         """
         Encode some ProduceRequest structs
@@ -500,7 +503,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_produce_response(cls, data):
+    def decode_produce_response(cls, data: bytes) -> Iterator[ProduceResponse]:
         """
         Decode bytes to a ProduceResponse
 
@@ -518,7 +521,14 @@ class KafkaCodec(object):
                 yield ProduceResponse(topic, partition, error, offset)
 
     @classmethod
-    def encode_fetch_request(cls, client_id, correlation_id, payloads=None, max_wait_time=100, min_bytes=4096):
+    def encode_fetch_request(
+        cls,
+        client_id: bytes,
+        correlation_id: int,
+        payloads: Optional[List[FetchRequest]],
+        max_wait_time: int = 100,
+        min_bytes: int = 4096,
+    ) -> bytes:
         """
         Encodes some FetchRequest structs
 
@@ -549,7 +559,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_fetch_response(cls, data):
+    def decode_fetch_response(cls, data: bytes) -> Iterator[FetchResponse]:
         """
         Decode bytes to a FetchResponse
 
@@ -575,7 +585,17 @@ class KafkaCodec(object):
                 )
 
     @classmethod
-    def encode_offset_request(cls, client_id, correlation_id, payloads=None):
+    def encode_offset_request(
+        cls, client_id: bytes, correlation_id: int, payloads: Optional[List[OffsetRequest]] = None
+    ) -> bytes:
+        """
+        Encode some OffsetRequest structs
+
+        :param bytes client_id:
+        :param int correlation_id:
+        :param list payloads: list of :class:`OffsetRequest`
+
+        """
         payloads = [] if payloads is None else payloads
         grouped_payloads = group_by_topic_and_partition(payloads)
 
@@ -594,7 +614,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_offset_response(cls, data):
+    def decode_offset_response(cls, data: bytes) -> Iterator[OffsetResponse]:
         """
         Decode bytes to an :class:`OffsetResponse`
 
@@ -617,7 +637,9 @@ class KafkaCodec(object):
                 yield OffsetResponse(topic, partition, error, tuple(offsets))
 
     @classmethod
-    def encode_metadata_request(cls, client_id, correlation_id, topics=None):
+    def encode_metadata_request(
+        cls, client_id: bytes, correlation_id: int, topics: Optional[List[str]] = None
+    ) -> bytes:
         """
         Encode a MetadataRequest
 
@@ -635,7 +657,7 @@ class KafkaCodec(object):
         return b"".join(message)
 
     @classmethod
-    def decode_metadata_response(cls, data):
+    def decode_metadata_response(cls, data: bytes) -> Tuple[Dict[int, BrokerMetadata], Dict[str, TopicMetadata]]:
         """
         Decode bytes to a MetadataResponse
 
@@ -686,7 +708,7 @@ class KafkaCodec(object):
         return brokers, topic_metadata
 
     @classmethod
-    def encode_consumermetadata_request(cls, client_id, correlation_id, consumer_group):
+    def encode_consumermetadata_request(cls, client_id: bytes, correlation_id: int, consumer_group: str) -> bytes:
         """
         Encode a ConsumerMetadataRequest
 
@@ -699,7 +721,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_consumermetadata_response(cls, data):
+    def decode_consumermetadata_response(cls, data: bytes) -> ConsumerMetadataResponse:
         """
         Decode bytes to a ConsumerMetadataResponse
 
@@ -714,12 +736,12 @@ class KafkaCodec(object):
     @classmethod
     def encode_offset_commit_request(
         cls,
-        client_id,
-        correlation_id,
-        group,
-        group_generation_id,
-        consumer_id,
-        payloads,
+        client_id: bytes,
+        correlation_id: int,
+        group: str,
+        group_generation_id: int,
+        consumer_id: str,
+        payloads: List[OffsetCommitRequest],
     ):
         """
         Encode some OffsetCommitRequest structs (v1)
@@ -757,7 +779,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_offset_commit_response(cls, data):
+    def decode_offset_commit_response(cls, data: bytes) -> Iterable[OffsetCommitResponse]:
         """
         Decode bytes to an OffsetCommitResponse
 
@@ -775,7 +797,9 @@ class KafkaCodec(object):
                 yield OffsetCommitResponse(topic, partition, error)
 
     @classmethod
-    def encode_offset_fetch_request(cls, client_id, correlation_id, group, payloads):
+    def encode_offset_fetch_request(
+        cls, client_id: bytes, correlation_id: int, group: str, payloads: List[OffsetFetchRequest]
+    ):
         """
         Encode some OffsetFetchRequest structs
 
@@ -800,7 +824,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_offset_fetch_response(cls, data):
+    def decode_offset_fetch_response(cls, data: bytes) -> Iterable[OffsetFetchResponse]:
         """
         Decode bytes to an OffsetFetchResponse
 
@@ -822,7 +846,7 @@ class KafkaCodec(object):
                 yield OffsetFetchResponse(topic, partition, offset, metadata, error)
 
     @classmethod
-    def encode_join_group_request(cls, client_id, correlation_id, payload):
+    def encode_join_group_request(cls, client_id: bytes, correlation_id: int, payload: _JoinGroupRequest):
         """
         Encode a JoinGroupRequest
 
@@ -845,7 +869,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def encode_join_group_protocol_metadata(cls, version, subscriptions, user_data):
+    def encode_join_group_protocol_metadata(cls, version: int, subscriptions: List[str], user_data: bytes) -> bytes:
         message = struct.pack(">hi", version, len(subscriptions))
         for subscription in subscriptions:
             message += write_short_text(subscription)
@@ -853,7 +877,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_join_group_protocol_metadata(cls, data):
+    def decode_join_group_protocol_metadata(cls, data: bytes) -> _JoinGroupProtocolMetadata:
         """
         Decode bytes to a JoinGroupProtocolMetadata
 
@@ -868,7 +892,7 @@ class KafkaCodec(object):
         return _JoinGroupProtocolMetadata(version, subscriptions, user_data)
 
     @classmethod
-    def decode_join_group_response(cls, data):
+    def decode_join_group_response(cls, data: bytes) -> _JoinGroupResponse:
         """
         Decode bytes to a JoinGroupResponse
 
@@ -889,7 +913,7 @@ class KafkaCodec(object):
         return _JoinGroupResponse(error, generation_id, group_protocol, leader_id, member_id, members)
 
     @classmethod
-    def encode_leave_group_request(cls, client_id, correlation_id, payload):
+    def encode_leave_group_request(cls, client_id: bytes, correlation_id: int, payload: _LeaveGroupRequest):
         """
         Encode a LeaveGroupRequest
         :param bytes client_id: string
@@ -903,7 +927,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_leave_group_response(cls, data):
+    def decode_leave_group_response(cls, data: bytes) -> _LeaveGroupResponse:
         """
         Decode bytes to a LeaveGroupResponse
 
@@ -913,7 +937,7 @@ class KafkaCodec(object):
         return _LeaveGroupResponse(error)
 
     @classmethod
-    def encode_heartbeat_request(cls, client_id, correlation_id, payload):
+    def encode_heartbeat_request(cls, client_id: bytes, correlation_id: int, payload: _HeartbeatRequest) -> bytes:
         """
         Encode a HeartbeatRequest
 
@@ -929,7 +953,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_heartbeat_response(cls, data):
+    def decode_heartbeat_response(cls, data: bytes) -> _HeartbeatResponse:
         """
         Decode bytes to a `_HeartbeatResponse`
 
@@ -939,7 +963,7 @@ class KafkaCodec(object):
         return _HeartbeatResponse(error)
 
     @classmethod
-    def encode_sync_group_request(cls, client_id, correlation_id, payload):
+    def encode_sync_group_request(cls, client_id: bytes, correlation_id: int, payload: _SyncGroupRequest) -> bytes:
         """
         Encode a SyncGroupRequest
 
@@ -961,7 +985,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_sync_group_response(cls, data):
+    def decode_sync_group_response(cls, data: bytes) -> _SyncGroupResponse:
         """
         Decode bytes to a SyncGroupResponse
 
@@ -972,7 +996,9 @@ class KafkaCodec(object):
         return _SyncGroupResponse(error, member_assignment)
 
     @classmethod
-    def encode_sync_group_member_assignment(cls, version, assignments, user_data):
+    def encode_sync_group_member_assignment(
+        cls, version: int, assignments: Dict[str, List[int]], user_data: bytes
+    ) -> bytes:
         message = struct.pack(">h", version)
         message += struct.pack(">i", len(assignments))
         for topic, partitions in assignments.items():
@@ -982,7 +1008,7 @@ class KafkaCodec(object):
         return message
 
     @classmethod
-    def decode_sync_group_member_assignment(cls, data):
+    def decode_sync_group_member_assignment(cls, data: bytes) -> _SyncGroupMemberAssignment:
         """
         Decode bytes to a SyncGroupMemberAssignment
 
@@ -1002,7 +1028,7 @@ class KafkaCodec(object):
         return _SyncGroupMemberAssignment(version, assignments, user_data)
 
 
-def create_message(payload, key=None):
+def create_message(payload: bytes, key: bytes = None) -> Message:
     """
     Construct a :class:`Message`
 
@@ -1017,7 +1043,7 @@ def create_message(payload, key=None):
     return Message(0, 0, key, payload)
 
 
-def create_gzip_message(message_set):
+def create_gzip_message(message_set: List[Message]) -> Message:
     """
     Construct a gzip-compressed message containing multiple messages
 
@@ -1032,7 +1058,7 @@ def create_gzip_message(message_set):
     return Message(0, CODEC_GZIP, None, gzipped)
 
 
-def create_snappy_message(message_set):
+def create_snappy_message(message_set: List[Message]) -> Message:
     """
     Construct a Snappy-compressed message containing multiple messages
 
@@ -1046,13 +1072,15 @@ def create_snappy_message(message_set):
     return Message(0, CODEC_SNAPPY, None, snapped)
 
 
-def create_message_set(requests, codec=CODEC_NONE):
+def create_message_set(requests: List[ProduceRequest], codec: int = CODEC_NONE) -> List[Message]:
     """
     Create a message set from a list of requests.
 
     Each request can have a list of messages and its own key.  If codec is
     :data:`CODEC_NONE`, return a list of raw Kafka messages. Otherwise, return
     a list containing a single codec-encoded message.
+
+    :param requests: a list of :class:`ProduceRequest` instances
 
     :param codec:
         The encoding for the message set, one of the constants:
