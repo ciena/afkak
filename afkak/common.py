@@ -144,7 +144,8 @@ class OffsetRequest(BaseStruct):
 
     :ivar str topic: The topic this request is for
     :ivar int partition: The partition this request is for
-    :ivar int time: Time to use for fetching offsets. Specify -1 to receive the latest offsets and -2 to receive the earliest available offsets. Defaults to -1.
+    :ivar int time: Time to use for fetching offsets. Specify -1 to receive the latest offsets and -2 to receive
+        the earliest available offsets. Defaults to -1.
     :ivar int max_offsets: Maximum number of offsets to return. Defaults to 1.
 
     :note: The `time` and `max_offsets` fields are optional and can be None if no messages need to be fetched.

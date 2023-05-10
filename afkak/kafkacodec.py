@@ -441,7 +441,7 @@ class KafkaCodec(object):
 
         for api_key, min_version, max_version in struct.iter_unpack(">hhh", data[cur:]):
             api_versions.append((api_key, min_version, max_version))
-            cur += 6
+
         return ApiVersionResponse(error_code, api_versions)
 
     @classmethod

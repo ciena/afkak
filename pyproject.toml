@@ -71,10 +71,13 @@ fixable = []
 target-version = "py39"
 select = [
     'E', # pycodestyle errors
-    'F', # flake8 errors
+    'F', # pyflakes
     'W', # pycodestyle warnings
     'B', # bugbear
     'TCH', # flake8-type checking
+    'PLE', # pylint errors
+    'PLC', # pylint conventions
+    'PLW', # pylint warnings
 ]
 
 line-length = 120
