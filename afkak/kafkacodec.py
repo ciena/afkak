@@ -286,7 +286,7 @@ class KafkaCodec(object):
         )
 
     @classmethod
-    def _encode_message_set(cls, messages: List[Message], offset: int = None):
+    def _encode_message_set(cls, messages: List[Message], offset: int = None, magic: int = 0):
         """
         Encode a MessageSet. Unlike other arrays in the protocol,
         MessageSets are not length-prefixed.  Format::
@@ -301,7 +301,10 @@ class KafkaCodec(object):
             incr = 0
             offset = 0
         for message in messages:
-            encoded_message = KafkaCodec._encode_message(message)
+            if magic == 0:
+                encoded_message = KafkaCodec._encode_message(message)
+            elif magic == 1:
+                encoded_message = KafkaCodec._encode_message(message)
             message_set.append(struct.pack(">qi", offset, len(encoded_message)))
             message_set.append(encoded_message)
             offset += incr
@@ -340,7 +343,11 @@ class KafkaCodec(object):
             crc = zlib.crc32(msg) & 0xFFFFFFFF  # Ensure unsigned
             msg = struct.pack('>I', crc) + msg
         elif message.magic == 1:
-            msg = struct.pack('>BBq', message.magic, message.attributes, message.timestamp)
+            if message.timestamp is None:
+                ts = int(time.time() * 1000)
+                msg = struct.pack('>BBq', message.magic, message.attributes, ts)
+            else:
+                msg = struct.pack('>BBq', message.magic, message.attributes, message.timestamp)
             msg += write_int_string(message.key)
             msg += write_int_string(message.value)
             crc = zlib.crc32(msg) & 0xFFFFFFFF
@@ -542,9 +549,15 @@ class KafkaCodec(object):
 
         # override the api_version instead of passing it directly for now since we only support 2 versions
         if api_version >= 2:
-            api_version = 2
+            req_api_version = 2
+            magic = 1
+        else:
+            req_api_version = api_version
+            magic = 0
 
-        message = cls._encode_message_header(client_id, correlation_id, KafkaCodec.PRODUCE_KEY, api_version=api_version)
+        message = cls._encode_message_header(
+            client_id, correlation_id, KafkaCodec.PRODUCE_KEY, api_version=req_api_version
+        )
 
         message += struct.pack(">hii", acks, timeout, len(grouped_payloads))
 
@@ -553,7 +566,7 @@ class KafkaCodec(object):
 
             message += struct.pack(">i", len(topic_payloads))
             for partition, payload in topic_payloads.items():
-                msg_set = KafkaCodec._encode_message_set(payload.messages)
+                msg_set = KafkaCodec._encode_message_set(payload.messages, magic=magic)
                 message += struct.pack(">ii", partition, len(msg_set))
                 message += msg_set
 
@@ -580,25 +593,38 @@ class KafkaCodec(object):
 
                     yield ProduceResponse(topic, partition, error, offset)
 
-        def v1(data):
+        def v2(data):
+            """
+            schema:
+
+            Produce Response (Version: 2) => [responses] throttle_time_ms
+              responses => name [partition_responses]
+                name => STRING
+                partition_responses => index error_code base_offset log_append_time_ms
+                  index => INT32
+                  error_code => INT16
+                  base_offset => INT64
+                  log_append_time_ms => INT64
+              throttle_time_ms => INT32
+
+            """
             ((correlation_id, num_topics), cur) = relative_unpack(">ii", data, 0)
 
             for _i in range(num_topics):
                 topic, cur = read_short_ascii(data, cur)
                 ((num_partitions,), cur) = relative_unpack(">i", data, cur)
                 for _i in range(num_partitions):
-                    ((partition, error, offset), cur) = relative_unpack(">ihq", data, cur)
+                    ((partition, error, offset, log_append_time_ms), cur) = relative_unpack(">ihqq", data, cur)
 
                     yield ProduceResponse(topic, partition, error, offset)
 
             throttle_time_ms, cur = relative_unpack(">i", data, cur)
-            return throttle_time_ms
 
         if api_version == 0:
             return v0(data)
-        elif api_version == 1:
+        elif api_version >= 1:
             # TODO: handle/use throttle_time_ms?
-            return v1(data)
+            return v2(data)
         else:
             raise ValueError(f"Unsupported API version: {api_version}")
 
@@ -629,9 +655,13 @@ class KafkaCodec(object):
 
         # override the api_version instead of passing it directly for now since we only support 2 versions
         if api_version >= 2:
-            api_version = 2
+            req_api_version = 2
+        else:
+            req_api_version = api_version
 
-        message = cls._encode_message_header(client_id, correlation_id, KafkaCodec.FETCH_KEY, api_version=api_version)
+        message = cls._encode_message_header(
+            client_id, correlation_id, KafkaCodec.FETCH_KEY, api_version=req_api_version
+        )
 
         assert isinstance(max_wait_time, int)
 

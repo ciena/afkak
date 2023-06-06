@@ -47,6 +47,8 @@ class SpawnedService(object):
 
     def _run(self):
         self._log.debug("Starting args=%r env=%s", self._args, pformat(self._env))
+        os.makedirs(os.path.join(os.curdir, "logs"), exist_ok=True)
+        log_file = open(os.path.join(os.curdir, "logs", self._name + ".log"), "w")
         proc = subprocess.Popen(
             self._args,
             env=self._env,
@@ -66,7 +68,7 @@ class SpawnedService(object):
                 if proc.stdout in rds:
                     line = proc.stdout.readline().decode("utf-8", "backslashescape")
                     if line:
-                        self._log.debug(line.rstrip("\r\n"))
+                        log_file.write(line)
                         if self._start_re.search(line):
                             self._log.debug("Marking subprocess started")
                             self._started.set()
@@ -94,6 +96,7 @@ class SpawnedService(object):
             else:
                 if returncode is not None:
                     self._log.info("Subprocess exited: returncode=%d", returncode)
+                    log_file.close()
                     break
 
                 if not killed and datetime.utcnow() > stop_deadline:

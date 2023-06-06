@@ -29,6 +29,7 @@ from .. import KafkaClient
 from ..client import _normalize_hosts
 from ..client import log as client_log
 from ..common import (
+    ApiVersion,
     ApiVersionResponse,
     BrokerMetadata,
     CoordinatorNotAvailable,
@@ -157,6 +158,7 @@ class TestKafkaClient(unittest.TestCase):
         topic_partitions=None,
         topic_metadata=None,
         disconnect_on_timeout=False,
+        enable_protocol_version_discovery=False,
     ):
         """
         :param brokers: Broker metadata to load
@@ -176,6 +178,8 @@ class TestKafkaClient(unittest.TestCase):
             Mutually exlusive with *topic_partitions*.
 
         :param bool disconnect_on_timeout:
+            Passed on to KafkaClient.
+        :param bool enable_protocol_version_discovery:
             Passed on to KafkaClient.
         """
         broker_id_seq = cycle(bm.node_id for bm in brokers)
@@ -212,6 +216,7 @@ class TestKafkaClient(unittest.TestCase):
             reactor=reactor,
             endpoint_factory=connections,
             disconnect_on_timeout=disconnect_on_timeout,
+            enable_protocol_version_discovery=enable_protocol_version_discovery,
         )
 
         d = client.load_metadata_for_topics()
@@ -1980,9 +1985,9 @@ class TestKafkaClient(unittest.TestCase):
         """
         The client can get the API versions supported by the brokers.
         """
-        reactor, connections, client = self.client_with_metadata(brokers=[])
+        reactor, connections, client = self.client_with_metadata(brokers=[], enable_protocol_version_discovery=True)
 
-        d = client._get_api_versions()
+        d = client.fetch_api_versions()
         self.assertNoResult(d)
 
         # Accept connection from the client
@@ -2005,7 +2010,7 @@ class TestKafkaClient(unittest.TestCase):
         result = self.successResultOf(d)
         self.assertEqual(result.error_code, 0)
         self.assertEqual(len(result.api_versions), len(api_versions))
-        expected_resp = ApiVersionResponse(error_code=0, api_versions=api_versions)
+        expected_resp = ApiVersionResponse(error_code=0, api_versions=[ApiVersion(*v) for v in api_versions])
         self.assertEqual(result, expected_resp)
 
 

@@ -381,7 +381,10 @@ class Producer(object):
         # payload (topic/partition) level.
         payloads = []
         for (topic, partition), reqs in reqsByTopicPart.items():
-            msgSet = create_message_set(reqs, self.codec)
+            if self.client._api_versions != 0 and isinstance(self.client._api_versions, list):
+                msgSet = create_message_set(reqs, self.codec, magic=1)
+            else:
+                msgSet = create_message_set(reqs, self.codec)
             req = ProduceRequest(topic, partition, msgSet)
             topicPart = TopicAndPartition(topic, partition)
             payloads.append(req)

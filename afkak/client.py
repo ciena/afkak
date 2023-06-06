@@ -694,7 +694,7 @@ class KafkaClient(object):
         if acks == 0:
             decoder = None
         else:
-            decoder = KafkaCodec.decode_produce_response
+            decoder = partial(KafkaCodec.decode_produce_response, api_version=api_ver)
 
         resps = yield self._send_broker_aware_request(payloads, encoder, decoder)
 
@@ -851,7 +851,6 @@ class KafkaClient(object):
             self._api_versions = 0
         else:
             self._api_versions = resp.api_versions
-            log.debug("Set API versions for %r to %r", self, self._api_versions)
             self._api_version_failures = 0
 
     def _handle_responses(self, responses, fail_on_error, callback=None, consumer_group=None):

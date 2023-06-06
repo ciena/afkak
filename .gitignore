@@ -17,3 +17,5 @@ htmlcov
 /docs/html
 *.swp
 .DS_Store
+logs/*
+

@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import logging
+import os
 import random
 
 from afkak.common import FetchRequest, OffsetCommitRequest, OffsetFetchRequest, OffsetRequest, ProduceRequest
@@ -34,9 +35,10 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         partitions=2,
         message_max_bytes=12 * 1048576,  # 12 MB
     )
-    client_kw = dict(
-        timeout=30000,  # Large timeout because Travis is slow.
-    )
+    if os.environ.get("KAFKA_VERSION", '0') >= '1.1.1':
+        client_kw = dict(enable_protocol_version_discovery=True, timeout=30000)
+    else:
+        client_kw = dict(timeout=30000)
 
     @kafka_versions("all")
     @inlineCallbacks
@@ -172,12 +174,21 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         self.assertEqual(resp.metadata, metadata)
         log.debug("test_commit_fetch_offsets: Test Complete.")
 
-    @kafka_versions("1.1.1")
+    @kafka_versions("all")
     @inlineCallbacks
     def test_get_api_versions(self):
         """
         Get the API versions from the broker.
         """
-        resp = yield self.client._get_api_versions()
 
-        assert len(resp.api_versions) == 43  # 43 is the number of APIs in 1.1.1
+        yield self.client.fetch_api_versions()
+
+        if os.getenv("KAFKA_VERSION") >= "1.1.1":
+            # The client should have a list of API versions
+            assert len(self.client._api_versions) > 0
+            # 43 is the number of APIs in 1.1.1 there should be at least that many or more
+            assert len(self.client._api_versions) >= 43
+        else:
+            # The client should have a fallback value of 0
+            assert self.client._api_versions == 0
+

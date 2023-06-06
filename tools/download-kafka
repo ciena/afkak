@@ -68,10 +68,10 @@ versions = {
         'https://archive.apache.org/dist/kafka/0.9.0.1/kafka_2.11-0.9.0.1.tgz',
         '818a821877436bbb9698a32afeb299bc569985a6b712179a9882bf1a10edfdb4992519ba39c1d7499144650b30781fc943a4d5d15b8d5916a4c1a5e542d9b956',
     ),
-    '0.11.0.2': (
-        'kafka_2.12-0.11.0.2',
-        'https://archive.apache.org/dist/kafka/0.11.0.2/kafka_2.12-0.11.0.2.tgz',
-        'b1652b53558886a1d407fd82d6ea1c3af5b580752303dcf836c43d76c0fc0773790df4af2d9364f937fac96d197974282e57add488bd592e87cf4c3f52592bb8',
+    '0.11.0.3': (
+        'kafka_2.12-0.11.0.3',
+        'https://archive.apache.org/dist/kafka/0.11.0.3/kafka_2.11-0.11.0.3.tgz',
+        'd38caaa80f43d02dcc8bc453fbf71e8d609249731583556fdd991dcb09ff342d0ec855896ff76875cea48a471cc95bda9174bf3f3507696f243e72e5e456c584',
     ),
     '1.0.0': (
         'kafka_2.11-1.0.0',
@@ -88,6 +88,21 @@ versions = {
         'https://archive.apache.org/dist/kafka/1.1.1/kafka_2.11-1.1.1.tgz',
         '2bf14a07c569c84736271471a9abb7b937b311780ed2a3d969ac0123737319e9151e0a69d6b8bd309a57b92cb00a90400e8e19e0512a6ee9206b2c91826af930',
     ),
+    '2.8.2': (
+        'kafka_2.12-2.8.2',
+        'https://archive.apache.org/dist/kafka/2.8.2/kafka_2.12-2.8.2.tgz',
+        'ce90f4722d49d896643ce63e1b4f8f1620c7a3dca603646733052b3a9155f3e3f7e93422015c0c588988be836487f9d638472a624f1c4895662daa3aa3ba2bb7',
+    ),
+    '3.1.0': (
+        'kafka_2.12-3.1.0',
+        'https://archive.apache.org/dist/kafka/3.1.0/kafka_2.12-3.1.0.tgz',
+        'bdc05a784c4b5bbcfdfd3f552727a0b1de2a01c794b22495de04fd478f704d27e9751f5e77eca1cea8ebca22cd51d859029dc4858e8858f977142b7cd948f5e7'
+    ),
+    '3.4.1': (
+        'kafka_2.12-3.4.1',
+        'https://archive.apache.org/dist/kafka/3.4.1/kafka_2.12-3.4.1.tgz',
+        'dfc0daf75874a1ceda24f8a03d71073e423596e4a912aea886374d7131be9f2c8788c1f76dd652e121e5325b72a920bb1886c399da412111f5f388c991de8406'
+    )
 }
 
 parser = argparse.ArgumentParser(description="Download and extract Kafka distribution tarballs.")

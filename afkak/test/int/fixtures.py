@@ -195,15 +195,17 @@ class _ZookeeperFixture(_Fixture):
             "afkak",
         )
         env = self.kafka_run_class_env()
-        proc = subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        stdout, _stderr = proc.communicate()
-        if proc.returncode != 0:  # pragma: no cover
-            self._log.error(
-                "Failed to create Zookeeper chroot node. Process exited %d and output:\n%s",
-                proc.returncode,
-                stdout.decode("utf-8", "replace"),
-            )
-            raise RuntimeError("Failed to create Zookeeper chroot node")
+        os.makedirs(os.path.join(os.curdir, "logs"), exist_ok=True)
+        with open(os.path.join(os.curdir, "logs", "zk-chroot.log"), "w") as f:
+            proc = subprocess.Popen(args, env=env, stdout=f, stderr=subprocess.STDOUT)
+            stdout, _stderr = proc.communicate()
+            if proc.returncode != 0:  # pragma: no cover
+                self._log.error(
+                    "Failed to create Zookeeper chroot node. Process exited %d and output:\n%s",
+                    proc.returncode,
+                    stdout.decode("utf-8", "replace"),
+                )
+                raise RuntimeError("Failed to create Zookeeper chroot node")
         self._log.debug("Done!")
 
     def close(self):

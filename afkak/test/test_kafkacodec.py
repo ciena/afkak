@@ -240,7 +240,7 @@ class TestKafkaCodec(TestCase):
         self.assertEqual(decoded_message, create_message(b"test", b"key"))
 
     def test_encode_message_failure(self):
-        self.assertRaises(ProtocolError, KafkaCodec._encode_message, Message(1, 0, "key", "test"))
+        self.assertRaises(ProtocolError, KafkaCodec._encode_message, Message(2, 0, "key", "test"))
 
     def test_encode_message_set(self):
         message_set = [
@@ -354,8 +354,8 @@ class TestKafkaCodec(TestCase):
 
     def test_decode_message_checksum_error(self):
         invalid_encoded_message = b"This is not a valid encoded message"
-        iter = KafkaCodec._decode_message(invalid_encoded_message, 0)
-        self.assertRaises(ChecksumError, list, iter)
+        with self.assertRaises(ChecksumError):
+            list(KafkaCodec._decode_message(invalid_encoded_message, 0))
 
     # NOTE: The error handling in _decode_message_set_iter() is questionable.
     # If it's modified, the next two tests might need to be fixed.

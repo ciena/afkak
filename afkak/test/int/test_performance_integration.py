@@ -40,6 +40,8 @@ class TestPerformanceIntegration(IntegrationMixin, unittest.TestCase):
         replicas=3,
         partitions=PARTITION_COUNT,
     )
+    if os.environ.get("KAFKA_VERSION", '0') >= "1.1.1":
+        client_kw = dict(enable_protocol_version_discovery=True)
 
     # Default partition
     partition = 0

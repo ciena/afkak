@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import logging
+import os
 import time
 from unittest import skipUnless
 
@@ -38,6 +39,7 @@ from afkak.common import (
 )
 from afkak.test.testutil import async_delay, make_send_requests, random_string
 
+import pytest
 from .intutil import IntegrationMixin, kafka_versions
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
@@ -48,6 +50,8 @@ log = logging.getLogger(__name__)
 class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     topic = "produce_topic"
     harness_kw = dict(replicas=1, partitions=2)
+    if os.environ.get("KAFKA_VERSION", '0') >= '1.1.1':
+        client_kw = dict(enable_protocol_version_discovery=True)
 
     ###########################################################################
     #   client production Tests  - Server setup is 1 replica, 2 partitions    #
@@ -124,14 +128,11 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     def test_produce_many_gzip(self):
         start_offset = yield self.current_offset(self.topic, 0)
 
-        message1 = create_message_set(make_send_requests([b"Gzipped 1 %d" % i for i in range(100)]), CODEC_GZIP)[0]
-        message2 = create_message_set(make_send_requests([b"Gzipped 2 %d" % i for i in range(100)]), CODEC_GZIP)[0]
+        message1 = create_message_set(make_send_requests([b"Gzipped 1 %d" % i for i in range(100)]), CODEC_GZIP)
+        message2 = create_message_set(make_send_requests([b"Gzipped 2 %d" % i for i in range(100)]), CODEC_GZIP)
 
-        yield self.assert_produce_request(
-            [message1, message2],
-            start_offset,
-            200,
-        )
+        yield self.assert_produce_request(message1, start_offset, 100)
+        yield self.assert_produce_request(message2, start_offset + 100, 100)
 
     @skipUnless(has_snappy(), "Snappy not available")
     @kafka_versions("all")
@@ -139,14 +140,12 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     def test_produce_many_snappy(self):
         start_offset = yield self.current_offset(self.topic, 0)
 
-        message1 = create_message_set(make_send_requests([b"Snappy 1 %d" % i for i in range(100)]), CODEC_SNAPPY)[0]
-        message2 = create_message_set(make_send_requests([b"Snappy 2 %d" % i for i in range(100)]), CODEC_SNAPPY)[0]
-        yield self.assert_produce_request(
-            [message1, message2],
-            start_offset,
-            200,
-        )
+        message1 = create_message_set(make_send_requests([b"Snappy 1 %d" % i for i in range(100)]), CODEC_SNAPPY)
+        message2 = create_message_set(make_send_requests([b"Snappy 2 %d" % i for i in range(100)]), CODEC_SNAPPY)
+        yield self.assert_produce_request(message1, start_offset, 100)
+        yield self.assert_produce_request(message2, start_offset + 100, 100)
 
+    @skipUnless(os.getenv('KAFKA_VERSION', '0') <= '1.1.1', "Kafka version 2.x > is broken")
     @kafka_versions("all")
     @inlineCallbacks
     def test_produce_mixed(self):
@@ -220,6 +219,36 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
             0,
             start_offset0,
             [self.msg("one"), self.msg("two"), self.msg("four"), self.msg("five")],
+        )
+
+        yield producer.stop()
+
+    @kafka_versions("all")
+    @pytest.mark.skipif(os.getenv("KAFKA_VERSION", '0') < "0.10.0", reason="Requires Kafka 0.10.0+")
+    def test_producer_send_messages_with_v1_protocol(self):
+        start_offset0 = yield self.current_offset(self.topic, 0)
+        start_offset1 = yield self.current_offset(self.topic, 1)
+        producer = Producer(self.client)
+
+        # Goes to first partition
+        resp = yield producer.send_messages(self.topic, msgs=[self.msg("one"), self.msg("two")])
+        self.assert_produce_response(resp, start_offset0)
+
+        # Goes to the 2nd partition
+        resp = yield producer.send_messages(self.topic, msgs=[self.msg("three")])
+        self.assert_produce_response(resp, start_offset1)
+
+        # fetch the messages back and make sure they are as expected
+        yield self.assert_fetch_offset(0, start_offset0, [self.msg("one"), self.msg("two")], expect_timestamps=True)
+        yield self.assert_fetch_offset(1, start_offset1, [self.msg("three")], expect_timestamps=True)
+        # Goes back to the first partition because there's only two partitions
+        resp = yield producer.send_messages(self.topic, msgs=[self.msg("four"), self.msg("five")])
+        self.assert_produce_response(resp, start_offset0 + 2)
+        yield self.assert_fetch_offset(
+            0,
+            start_offset0,
+            [self.msg("one"), self.msg("two"), self.msg("four"), self.msg("five")],
+            expect_timestamps=True,
         )
 
         yield producer.stop()
@@ -584,6 +613,8 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         start_offset0 = yield self.current_offset(self.topic, 0)
         start_offset1 = yield self.current_offset(self.topic, 1)
 
+        yield self.client.fetch_api_versions()
+
         # This needs to be big enough that the operations between starting the
         # producer and the sleep take less time than this... I made
         # it large enough that the test would still pass even with my Macbook's
@@ -685,8 +716,9 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         expected_messages,
         expected_keys=(),
         max_wait=0.5,
-        fetch_size=1024,
+        fetch_size=1024 * 1024,
         topic=None,
+        expect_timestamps=False,
     ):
         # There should only be one response message from the server.
         # This will throw an exception if there's more than one.
@@ -706,4 +738,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         if expected_keys:
             keys = [x.message.key for x in resp_messages]
             self.assertEqual(keys, expected_keys)
+        if expect_timestamps:
+            timestamps = [x.message.timestamp for x in resp_messages]
+            assert all(x is not None for x in timestamps)
         self.assertEqual(resp.highwaterMark, start_offset + len(expected_messages))
