@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from typing import List
 
 import attr
@@ -352,6 +351,23 @@ class PartitionMetadata(BaseStruct):
 
 
 # ApiVersionRequest and ApiVersionResponse
+
+
+@attr.frozen
+class ApiVersion(BaseStruct):
+    """
+    A supported API version
+
+    :ivar int api_key: The API key
+    :ivar int min_version: The minimum supported version
+    :ivar int max_version: The maximum supported version
+    """
+
+    api_key: int = attr.ib()
+    min_version: int = attr.ib()
+    max_version: int = attr.ib()
+
+
 @attr.frozen
 class ApiVersionRequest(BaseStruct):
     """
@@ -621,7 +637,7 @@ class SourcedMessage(BaseStruct):
 @attr.s(frozen=True, slots=True, repr=False)
 class Message(BaseStruct):
     """
-    A Kafka `message`_ in format 0.
+    A Kafka `message`_ in format 1.
 
     :ivar int magic: Message format version, always 0.
     :ivar int attributes: Compression flags.
@@ -630,6 +646,8 @@ class Message(BaseStruct):
         Note that the key is required on a compacted topic.
     :ivar bytes value:
         Message value, or ``None`` if this is a tombstone a.k.a. null message.
+    :ivar int timestamp: Message timestamp in milliseconds since the epoch.
+    :ivar int timestamp_type: Message timestamp type, always 0.
 
     .. _message: https://kafka.apache.org/documentation/#messageset
     """
@@ -638,9 +656,17 @@ class Message(BaseStruct):
     attributes = attr.ib()
     key = attr.ib()
     value = attr.ib()
+    timestamp = attr.ib(default=None)
+    timestamp_type = attr.ib(default=0)
 
     def __repr__(self):
-        bits = ["<Message v0"]
+        bits = ["<Message v%i" % self.magic]
+
+        if self.magic == 1:
+            if self.timestamp is not None:
+                bits.append(" timestamp=%i" % self.timestamp)
+            if self.timestamp_type != 0:
+                bits.append(" timestamp_type=%i" % self.timestamp_type)
 
         if self.attributes != 0:
             if self.attributes == CODEC_GZIP:

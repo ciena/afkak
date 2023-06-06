@@ -146,11 +146,25 @@ class KafkaClient(object):
         Use :func:`twisted.internet.application.backoffPolicy()` to generate
         such a callable.
 
+    :param bool enable_protocol_version_discovery:
+        If `True`, the client will attempt to detect the Kafka protocol version and use the appropriate
+        latest version of the protocol supported by the client. If `False`, the client will use the fallback
+        legacy protocol version (0). (default: `False`)
+
+        .. warning:: This should always be `False` when the broker is running a version of Kafka <0.10.0
+        that does not support the protocol version request API. Otherwise, the client will fail to fetch the versions
+        and initial connections will be slower as it will attempt to retry the request 3 times before falling back to
+        the legacy protocol version (0).
+
     .. versionchanged:: Afkak 3.0.0
 
           - The *endpoint_factory* argument was added.
           - The *retry_policy* argument was added.
           - *timeout* may no longer be `None`. Pass a large value instead.
+
+    .. versionchanged:: Afkak 22.0.0
+
+          - The *enable_protocol_version_discovery* argument was added.
     """
 
     # This is the __CLIENT_SIDE__ timeout that's used when making requests
@@ -184,6 +198,7 @@ class KafkaClient(object):
         reactor=None,
         endpoint_factory=HostnameEndpoint,
         retry_policy=_DEFAULT_RETRY_POLICY,
+        enable_protocol_version_discovery=False,
     ):
         # Afkak used to suport a timeout of None, but that's a bad idea in
         # practice (Kafka has been seen to black-hole requests) so support was
@@ -217,6 +232,8 @@ class KafkaClient(object):
         self._endpoint_factory = endpoint_factory
         assert retry_policy(1) >= 0.0
         self._retry_policy = retry_policy
+        self._api_versions = None if enable_protocol_version_discovery else 0
+        self._api_version_failures = 0
 
     @property
     def clock(self):
@@ -670,7 +687,9 @@ class KafkaClient(object):
         FailedPayloadsError, LeaderUnavailableError, PartitionUnavailableError
         """
 
-        encoder = partial(KafkaCodec.encode_produce_request, acks=acks, timeout=timeout)
+        api_ver = yield self.get_api_version(KafkaCodec.PRODUCE_KEY)
+
+        encoder = partial(KafkaCodec.encode_produce_request, acks=acks, timeout=timeout, api_version=api_ver)
 
         if acks == 0:
             decoder = None
@@ -707,15 +726,20 @@ class KafkaClient(object):
                 max_wait_time,
             )
 
+        api_ver = yield self.get_api_version(KafkaCodec.FETCH_KEY)
+
         encoder = partial(
             KafkaCodec.encode_fetch_request,
             max_wait_time=max_wait_time,
             min_bytes=min_bytes,
+            api_version=api_ver,
         )
+
+        decoder = partial(KafkaCodec.decode_fetch_response, api_version=api_ver)
 
         # resps is a list of FetchResponse() objects, each of which can hold
         # 1-n messages.
-        resps = yield self._send_broker_aware_request(payloads, encoder, KafkaCodec.decode_fetch_response)
+        resps = yield self._send_broker_aware_request(payloads, encoder, decoder)
 
         returnValue(self._handle_responses(resps, fail_on_error, callback))
 
@@ -780,22 +804,55 @@ class KafkaClient(object):
 
         returnValue(self._handle_responses(resps, fail_on_error, callback, group))
 
-    # # # Private Methods # # #
-
-    @defer.inlineCallbacks
-    def _get_api_versions(self) -> ApiVersionResponse:
+    @inlineCallbacks
+    def fetch_api_versions(self) -> ApiVersionResponse:
         """
         Get the API versions supported by the given broker.
-
         """
         requestId = self._next_id()
+        resp = None
 
         req = KafkaCodec.encode_api_versions_request(
             self._clientIdBytes, requestId, ApiVersionRequest(KafkaCodec.API_VERSIONS_KEY, 0)
         )
-        resp = yield self._send_broker_unaware_request(requestId, req)
+        while self._api_versions is None and self._api_version_failures < 3:
+            try:
+                resp = yield self._send_broker_unaware_request(requestId, req)
+                self._handle_api_version_update(KafkaCodec.decode_api_versions_response(resp))
+                break
+            except KafkaUnavailableError:
+                log.warning("Timed out trying to get API versions from %r", self)
+                self._api_version_failures += 1
 
-        return KafkaCodec.decode_api_versions_response(resp)
+        if resp:
+            return KafkaCodec.decode_api_versions_response(resp)
+        else:
+            err = ApiVersionResponse(-1, [])
+            self._handle_api_version_update(err)
+            return err
+
+    @inlineCallbacks
+    def get_api_version(self, key: int) -> int:
+        """
+        Get the version of the given API key.
+        """
+        if self._api_versions is None:
+            yield self.fetch_api_versions()
+        elif self._api_versions == 0:
+            return 0
+        return int(self._api_versions[key].max_version)
+
+    def _handle_api_version_update(self, resp: ApiVersionResponse):
+        """
+        Update the broker's supported API versions.
+        """
+        if resp.error_code != 0:
+            log.info("Unable to set API versions for %r, using fallback of 0", self)
+            self._api_versions = 0
+        else:
+            self._api_versions = resp.api_versions
+            log.debug("Set API versions for %r to %r", self, self._api_versions)
+            self._api_version_failures = 0
 
     def _handle_responses(self, responses, fail_on_error, callback=None, consumer_group=None):
         out = []
@@ -1147,7 +1204,7 @@ class KafkaClient(object):
         raise KafkaUnavailableError("Failed to bootstrap from hosts {}".format(hostports))
 
     @inlineCallbacks
-    def _send_broker_aware_request(self, payloads, encoder_fn, decode_fn, consumer_group=None):
+    def _send_broker_aware_request(self, payloads, encoder_fn, decode_fn, consumer_group=None, api_version=None):
         """
         Group a list of request payloads by topic+partition and send them to
         the leader broker for that partition using the supplied encode/decode
@@ -1173,6 +1230,10 @@ class KafkaClient(object):
             Indicates the request should be directed to the Offset Coordinator
             for the specified consumer_group.
         :type consumer_group: Optional[str]
+
+        :param api_version:
+            Indicates the version of the API to pass the the provided decode_fn and encode_fn.
+        :type api_version: Optional[int]
 
         :returns:
             deferred yielding a list of response objects in the same order as
