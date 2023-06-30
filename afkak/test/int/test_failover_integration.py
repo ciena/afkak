@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import logging
+import os
 import time
 
 from afkak import KafkaClient, Producer
@@ -44,7 +45,10 @@ class TestFailover(IntegrationMixin, unittest.TestCase):
     )
     # We want a short timeout on message sending for this test, since
     # we are expecting failures when we take down the brokers
-    client_kw = dict(timeout=1000)
+    if os.environ.get("KAFKA_VERSION", '0') == '0.9.0.1':
+        client_kw = dict(enable_protocol_version_discovery=False, timeout=1000)
+    else:
+        client_kw = dict(timeout=1000)
 
     @kafka_versions("all")
     @inlineCallbacks

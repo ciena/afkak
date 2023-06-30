@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import logging
+import os
 
 from afkak import Consumer, create_message
 from afkak.common import OFFSET_COMMITTED, OFFSET_EARLIEST, ConsumerFetchSizeTooSmall, ProduceRequest
@@ -33,6 +34,8 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         replicas=3,
         partitions=2,
     )
+    if os.environ.get("KAFKA_VERSION", '0') == '0.9.0.1':
+        client_kw = dict(enable_protocol_version_discovery=False)
 
     # Default partition
     partition = 0

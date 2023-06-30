@@ -35,8 +35,8 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         partitions=2,
         message_max_bytes=12 * 1048576,  # 12 MB
     )
-    if os.environ.get("KAFKA_VERSION", '0') >= '1.1.1':
-        client_kw = dict(enable_protocol_version_discovery=True, timeout=30000)
+    if os.environ.get("KAFKA_VERSION", '0') == '0.9.0.1':
+        client_kw = dict(enable_protocol_version_discovery=False, timeout=30000)
     else:
         client_kw = dict(timeout=30000)
 
@@ -191,4 +191,3 @@ class TestAfkakClientIntegration(IntegrationMixin, unittest.TestCase):
         else:
             # The client should have a fallback value of 0
             assert self.client._api_versions == 0
-

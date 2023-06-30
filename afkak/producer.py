@@ -381,7 +381,7 @@ class Producer(object):
         # payload (topic/partition) level.
         payloads = []
         for (topic, partition), reqs in reqsByTopicPart.items():
-            if self.client._api_versions != 0 and isinstance(self.client._api_versions, list):
+            if self.client._api_versions != 0:
                 msgSet = create_message_set(reqs, self.codec, magic=1)
             else:
                 msgSet = create_message_set(reqs, self.codec)

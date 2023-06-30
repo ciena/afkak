@@ -50,8 +50,8 @@ log = logging.getLogger(__name__)
 class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     topic = "produce_topic"
     harness_kw = dict(replicas=1, partitions=2)
-    if os.environ.get("KAFKA_VERSION", '0') >= '1.1.1':
-        client_kw = dict(enable_protocol_version_discovery=True)
+    if os.environ.get("KAFKA_VERSION", '0') == '0.9.0.1':
+        client_kw = dict(enable_protocol_version_discovery=False)
 
     ###########################################################################
     #   client production Tests  - Server setup is 1 replica, 2 partitions    #

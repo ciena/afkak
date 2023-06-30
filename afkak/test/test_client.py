@@ -1198,6 +1198,7 @@ class TestKafkaClient(unittest.TestCase):
             hosts="kafka31:9092,kafka32:9092",
             reactor=Clock(),
             endpoint_factory=connections,
+            enable_protocol_version_discovery=False,
         )
 
         # Setup the client with the metadata we want it to have

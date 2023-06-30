@@ -198,7 +198,7 @@ class KafkaClient(object):
         reactor=None,
         endpoint_factory=HostnameEndpoint,
         retry_policy=_DEFAULT_RETRY_POLICY,
-        enable_protocol_version_discovery=False,
+        enable_protocol_version_discovery=True,
     ):
         # Afkak used to suport a timeout of None, but that's a bad idea in
         # practice (Kafka has been seen to black-hole requests) so support was
@@ -233,7 +233,6 @@ class KafkaClient(object):
         assert retry_policy(1) >= 0.0
         self._retry_policy = retry_policy
         self._api_versions = None if enable_protocol_version_discovery else 0
-        self._api_version_failures = 0
 
     @property
     def clock(self):
@@ -811,18 +810,19 @@ class KafkaClient(object):
         """
         requestId = self._next_id()
         resp = None
+        api_version_failures = 0
 
         req = KafkaCodec.encode_api_versions_request(
             self._clientIdBytes, requestId, ApiVersionRequest(KafkaCodec.API_VERSIONS_KEY, 0)
         )
-        while self._api_versions is None and self._api_version_failures < 3:
+        while self._api_versions is None and api_version_failures < 3:
             try:
                 resp = yield self._send_broker_unaware_request(requestId, req)
                 self._handle_api_version_update(KafkaCodec.decode_api_versions_response(resp))
                 break
             except KafkaUnavailableError:
                 log.warning("Timed out trying to get API versions from %r", self)
-                self._api_version_failures += 1
+                api_version_failures += 1
 
         if resp:
             return KafkaCodec.decode_api_versions_response(resp)
@@ -851,7 +851,6 @@ class KafkaClient(object):
             self._api_versions = 0
         else:
             self._api_versions = resp.api_versions
-            self._api_version_failures = 0
 
     def _handle_responses(self, responses, fail_on_error, callback=None, consumer_group=None):
         out = []

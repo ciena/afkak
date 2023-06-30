@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 from unittest.mock import Mock
@@ -137,6 +138,8 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         replicas=1,
         partitions=num_partitions,
     )
+    if os.environ.get("KAFKA_VERSION", '0') == '0.9.0.1':
+        client_kw = dict(enable_protocol_version_discovery=False)
 
     @inlineCallbacks
     def send_messages(self, partition, messages):

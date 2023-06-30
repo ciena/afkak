@@ -159,6 +159,7 @@ class TestAfkakProducer(unittest.TestCase):
     def test_producer_send_messages(self):
         first_part = 23
         client = Mock(reactor=MemoryReactorClock())
+        client._api_versions = 0
         ret = Deferred()
         client.send_produce_request.return_value = ret
         client.topic_partitions = {self.topic: [first_part, 101, 102, 103]}
@@ -189,6 +190,7 @@ class TestAfkakProducer(unittest.TestCase):
         first_part = 43
         second_part = 56
         client = Mock(reactor=MemoryReactorClock())
+        client._api_versions = 0
         ret1 = Deferred()
         client.send_produce_request.side_effect = [ret1]
         client.topic_partitions = {self.topic: [first_part, second_part, 102]}
@@ -236,6 +238,7 @@ class TestAfkakProducer(unittest.TestCase):
         first_part = 43
         second_part = 55
         client = Mock(reactor=MemoryReactorClock())
+        client._api_versions = 0
         ret1 = Deferred()
         client.send_produce_request.side_effect = [ret1]
         client.topic_partitions = {self.topic: [first_part, second_part]}
@@ -289,6 +292,7 @@ class TestAfkakProducer(unittest.TestCase):
     def test_producer_send_messages_no_acks(self):
         first_part = 19
         client = Mock(reactor=MemoryReactorClock())
+        client._api_versions = 0
         ret = Deferred()
         client.send_produce_request.return_value = ret
         client.topic_partitions = {self.topic: [first_part, 101, 102, 103]}
@@ -313,6 +317,7 @@ class TestAfkakProducer(unittest.TestCase):
 
     def test_producer_send_messages_no_retry_fail(self):
         client = Mock(reactor=MemoryReactorClock())
+        client._api_versions = 0
         f = Failure(BrokerNotAvailableError())
         client.send_produce_request.side_effect = [fail(f)]
         client.topic_partitions = {self.topic: [0, 1, 2, 3]}
@@ -354,6 +359,7 @@ class TestAfkakProducer(unittest.TestCase):
     def test_producer_send_messages_None_for_null_msg(self):
         first_part = 23
         client = Mock(reactor=MemoryReactorClock())
+        client._api_versions = 0
         ret = Deferred()
         client.send_produce_request.return_value = ret
         client.topic_partitions = {self.topic: [first_part, 101, 102, 103]}
@@ -399,6 +405,7 @@ class TestAfkakProducer(unittest.TestCase):
     def test_producer_send_messages_batched(self):
         clock = MemoryReactorClock()
         client = Mock(reactor=clock)
+        client._api_versions = 0
         f = Failure(BrokerNotAvailableError())
         ret = [fail(f), succeed([ProduceResponse(self.topic, 0, 0, 10)])]
         client.send_produce_request.side_effect = ret
@@ -499,6 +506,7 @@ class TestAfkakProducer(unittest.TestCase):
     def test_producer_send_messages_batched_fail(self):
         clock = MemoryReactorClock()
         client = Mock(reactor=clock)
+        client._api_versions = 0
         ret = [Deferred(), Deferred(), Deferred()]
         client.send_produce_request.side_effect = ret
         client.topic_partitions = {self.topic: [0, 1, 2, 3]}
@@ -639,6 +647,7 @@ class TestAfkakProducer(unittest.TestCase):
         # Test cancelling a request after it's begun to be processed
         client = Mock(reactor=MemoryReactorClock())
         client.topic_partitions = {}
+        client._api_versions = 0
         ret = Deferred()
         client.load_metadata_for_topics.return_value = ret
         msgs = [self.msg("one"), self.msg("two")]
@@ -748,6 +757,7 @@ class TestAfkakProducer(unittest.TestCase):
     def test_producer_send_messages_bad_response(self):
         first_part = 68
         client = Mock(reactor=MemoryReactorClock())
+        client._api_versions = 0
         ret = Deferred()
         client.send_produce_request.return_value = ret
         client.topic_partitions = {self.topic: [first_part, 101, 102, 103]}
