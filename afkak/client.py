@@ -1229,10 +1229,6 @@ class KafkaClient(object):
             for the specified consumer_group.
         :type consumer_group: Optional[str]
 
-        :param api_version:
-            Indicates the version of the API to pass the the provided decode_fn and encode_fn.
-        :type api_version: Optional[int]
-
         :returns:
             deferred yielding a list of response objects in the same order as
             the supplied payloads, or None if decode_fn is None.

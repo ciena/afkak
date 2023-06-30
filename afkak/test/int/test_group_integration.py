@@ -182,11 +182,18 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
     @kafka_versions("all")
     @inlineCallbacks
     def test_three_coordinator_join(self):
-        self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
-        self.addCleanup(self.client2.close)
+        if os.getenv("KAFKA_VERSION", '0') == "0.9.0.1":
+            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2",
+                                       enable_protocol_version_discovery=False)
+            self.client3 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "3",
+                                       enable_protocol_version_discovery=False)
+        else:
+            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
+            self.client3 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "3")
 
-        self.client3 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "3")
+        self.addCleanup(self.client2.close)
         self.addCleanup(self.client3.close)
+
         coords = [
             Coordinator(
                 client,
@@ -310,7 +317,11 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         After that completes some partitions are distributed to each member.
         """
         group_id = "group_for_two"
-        self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
+        if os.getenv("KAFKA_VERSION", '0') == "0.9.0.1":
+            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2",
+                                       enable_protocol_version_discovery=False)
+        else:
+            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
         self.addCleanup(self.client2.close)
 
         record_stream = DeferredQueue(backlog=1)
@@ -439,7 +450,11 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         trigger a rejoin via consumer commit failure
         """
         group = "rejoin_group"
-        self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
+        if os.getenv("KAFKA_VERSION", '0') == "0.9.0.1":
+            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2",
+                                       enable_protocol_version_discovery=False)
+        else:
+            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
         self.addCleanup(self.client2.close)
 
         record_stream = DeferredQueue(backlog=1)
