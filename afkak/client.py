@@ -838,7 +838,7 @@ class KafkaClient(object):
         """
         if self._api_versions is None:
             yield self.fetch_api_versions()
-        elif self._api_versions == 0:
+        if self._api_versions == 0:
             return 0
         return int(self._api_versions[key].max_version)
 
