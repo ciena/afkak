@@ -55,7 +55,7 @@ REQUEST_RETRY_FACTOR = 1.20205  # Factor by which we increase our delay
 
 FETCH_MIN_BYTES = 64 * 1024  # server waits for min. 64K bytes of messages
 FETCH_MAX_WAIT_TIME = 100  # server waits 100 millisecs for messages
-FETCH_BUFFER_SIZE_BYTES = 128 * 1024  # Our initial fetch buffer size
+FETCH_BUFFER_SIZE_BYTES = 1048576  # Our initial fetch buffer size
 
 # How often we auto-commit (msgs, millisecs)
 AUTO_COMMIT_MSG_COUNT = 100

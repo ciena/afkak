@@ -86,4 +86,5 @@ show-fixes = true
 
 ignore = [
     'B028', # ignore stacklevel warnings
+    'B904' # ignore exception raised with message
 ]

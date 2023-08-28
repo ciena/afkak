@@ -19,7 +19,6 @@ import os
 
 from afkak import Consumer, create_message
 from afkak.common import OFFSET_COMMITTED, OFFSET_EARLIEST, ConsumerFetchSizeTooSmall, ProduceRequest
-from afkak.consumer import FETCH_BUFFER_SIZE_BYTES
 from afkak.test.testutil import async_delay, random_string
 
 from .intutil import IntegrationMixin, kafka_versions
@@ -109,7 +108,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         # Produce 10 messages that are large (bigger than default fetch size)
         large_messages = yield self.send_messages(
             partition=0,
-            messages=[random_string(FETCH_BUFFER_SIZE_BYTES * 3) for x in range(10)],
+            messages=[random_string(128 * 1024 * 3) for x in range(10)],
         )
 
         # Consumer should still get all of them
@@ -143,7 +142,7 @@ class TestConsumerIntegration(IntegrationMixin, unittest.TestCase):
         (huge_message,) = yield self.send_messages(0, [random_string(MAX_FETCH_BUFFER_SIZE_BYTES + 10)])
 
         # Create a consumer with the (smallish) max buffer size
-        consumer = self.consumer(max_buffer_size=MAX_FETCH_BUFFER_SIZE_BYTES)
+        consumer = self.consumer(buffer_size=128 * 1024, max_buffer_size=MAX_FETCH_BUFFER_SIZE_BYTES)
 
         # This consumer fails to get the message, and errbacks the start
         # deferred
