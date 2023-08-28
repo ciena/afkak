@@ -100,13 +100,13 @@ class DefaultRecordBase:
     NO_PARTITION_LEADER_EPOCH = -1
 
     def _assert_has_codec(self, compression_type):
-        if compression_type == self.CODEC_GZIP:
+        if compression_type == 1:
             checker, name = has_gzip(), "gzip"
-        elif compression_type == self.CODEC_SNAPPY:
+        elif compression_type == 2:
             checker, name = has_snappy(), "snappy"
         else:
             raise UnsupportedCodecError(f"Unknown compression codec {compression_type:#04x}")
-        if not checker():
+        if not checker:
             raise UnsupportedCodecError(f"Libraries for {name} compression codec not found")
 
 

@@ -64,6 +64,7 @@ from .common import (
     ProduceResponse,
     ProtocolError,
     Record,
+    RecordBatch,
     SendRequest,
     TopicMetadata,
     UnsupportedCodecError,
@@ -315,7 +316,7 @@ class KafkaCodec(object):
 
     @classmethod
     def _encode_record_batch(
-        cls, messages: Union[List[Record], List[Message], List[SendRequest]], offset: int = 0
+        cls, messages: Union[List[Record], List[Message], List[SendRequest], RecordBatch], offset: int = 0
     ) -> bytes:
         """
         Encode a RecordBatch. This can be given a list of `Records` or `Messages` or `SendRequest` for backwards
@@ -326,10 +327,25 @@ class KafkaCodec(object):
         :return: Encoded RecordBatch
         """
         baseOffset = offset or 0
-        builder = DefaultRecordBatchBuilder(
-            magic=2, compression_type=0, is_transactional=0, producer_id=-1, producer_epoch=-1, base_sequence=-1
-        )
-        if isinstance(messages[0], Message):
+        if isinstance(messages, RecordBatch):
+            builder = DefaultRecordBatchBuilder(
+                magic=2,
+                compression_type=messages.compression,
+                is_transactional=0,
+                producer_id=-1,
+                producer_epoch=-1,
+                base_sequence=-1,
+            )
+        else:
+            builder = DefaultRecordBatchBuilder(
+                magic=2, compression_type=0, is_transactional=0, producer_id=-1, producer_epoch=-1, base_sequence=-1
+            )
+        if isinstance(messages, RecordBatch):
+            for msg in messages.records:
+                ts = int(time.time() * 1000)
+                builder.append(offset=baseOffset, timestamp=ts, key=msg.key, value=msg.value, headers=msg.headers)
+                baseOffset += 1
+        elif isinstance(messages[0], Message):
             for message in messages:
                 ts = message.timestamp or int(time.time() * 1000)
                 builder.append(offset=baseOffset, timestamp=ts, key=message.key, value=message.value, headers=[])
@@ -1291,7 +1307,9 @@ def create_message_set(requests: List[ProduceRequest], codec: int = CODEC_NONE, 
         else:
             msglist.extend([create_message(m, key=req.key) for m in req.messages])
 
-    if codec == CODEC_NONE or magic == 2:
+    if magic == 2:
+        return RecordBatch(base_offset=0, partition_leader_epoch=-1, magic=2, compression=codec, records=msglist)
+    elif codec == CODEC_NONE:
         return msglist
     elif codec == CODEC_GZIP:
         return [create_gzip_message(msglist, magic)]
