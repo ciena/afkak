@@ -11,7 +11,7 @@ from .partitioner import HashedPartitioner, RoundRobinPartitioner
 from .producer import Producer
 
 __title__ = "afkak"
-__version__ = "21.5.0"  # setuptools parses this. Retain formatting.
+__version__ = "23.9.0+mcp0"  # setuptools parses this. Retain formatting.
 __author__ = "Robert Thille"
 __license__ = "Apache License 2.0"
 
