@@ -518,7 +518,7 @@ class DefaultRecordBatchBuilder(DefaultRecordBase):
     def build(self):
         send_compressed = self._maybe_compress()
         self.write_header(send_compressed)
-        return self._buffer
+        return bytes(self._buffer)
 
     def size(self):
         """Return current size of data written to buffer"""

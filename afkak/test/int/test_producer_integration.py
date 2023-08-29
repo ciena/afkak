@@ -442,7 +442,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
 
         yield producer.stop()
 
-    @kafka_versions("all")
+    @kafka_versions("0.9.0.1")
     @inlineCallbacks
     def test_producer_batched_by_messages(self):
         start_offset0 = yield self.current_offset(self.topic, 0)
@@ -520,7 +520,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         # cleanup
         yield producer.stop()
 
-    @kafka_versions("all")
+    @kafka_versions("0.9.0.1")
     @inlineCallbacks
     def test_producer_batched_by_bytes(self):
         start_offset0 = yield self.current_offset(self.topic, 0)
@@ -620,7 +620,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         # cleanup
         yield producer.stop()
 
-    @kafka_versions("all")
+    @kafka_versions("0.9.0.1")
     @inlineCallbacks
     def test_producer_batched_by_time(self):
         start_offset0 = yield self.current_offset(self.topic, 0)

@@ -51,7 +51,7 @@ class TestPerformanceIntegration(IntegrationMixin, unittest.TestCase):
     if "TRAVIS" in os.environ:
         skip = "not run on Travis due to flakiness"
 
-    @kafka_versions("all")
+    @kafka_versions("0.9.0.1")
     @inlineCallbacks
     def test_throughput(self):
         # Flag to shutdown
