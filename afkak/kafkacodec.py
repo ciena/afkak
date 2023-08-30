@@ -1228,7 +1228,7 @@ def create_message(payload: bytes, key: bytes = None, magic: int = 0) -> Message
     """
     assert payload is None or isinstance(payload, bytes), "payload={!r} should be bytes or None".format(payload)
     assert key is None or isinstance(key, bytes), "key={!r} should be bytes or None".format(key)
-    assert magic in (0, 1, 2), "magic={!r} should be 0 or 1".format(magic)
+    assert magic in (0, 1, 2), "magic={!r} should be 0,1 or 2".format(magic)
     if magic == 1:
         ts = int(time.time() * 1000)
         return Message(magic, 0, key, payload, timestamp=ts)

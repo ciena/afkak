@@ -286,8 +286,6 @@ class DefaultRecordBatch(DefaultRecordBase):
             self._next_record_index += 1
         return msg
 
-    next = __next__
-
     def validate_crc(self):
         assert self._decompressed is False, "Validate should be called before iteration"
 
@@ -610,4 +608,4 @@ class DefaultRecordMetadata:
         return self._timestamp
 
     def __repr__(self):
-        return f"DefaultRecordMetadata(offset={self._offset!r}," f" size={self._size!r}, timestamp={self._timestamp!r})"
+        return f"DefaultRecordMetadata(offset={self._offset!r}, size={self._size!r}, timestamp={self._timestamp!r})"

@@ -258,13 +258,22 @@ def encode_varint(value, write):
             bits = value & 0x7F
             value >>= 7
             i += 1
-    write(bits)
-    return i
+        write(bits)
+        return i
 
 
 def size_of_varint(value):
-    """Number of bytes needed to encode an integer in variable-length format."""
+    """Number of bytes needed to encode an integer in variable-length format.
+
+    :param int value: Value to encode
+    :returns: Number of bytes needed to encode the value
+    :raises ValueError: if the value is out of range for a 64-bit signed integer
+    """
+    if value > 0x7FFFFFFFFFFFFFFF or value < -0x8000000000000000:
+        raise ValueError("Value out of range for a 64-bit signed integer.")
+
     value = (value << 1) ^ (value >> 63)
+
     if value <= 0x7F:
         return 1
     if value <= 0x3FFF:
