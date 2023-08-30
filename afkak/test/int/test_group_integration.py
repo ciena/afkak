@@ -183,10 +183,12 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
     @inlineCallbacks
     def test_three_coordinator_join(self):
         if os.getenv("KAFKA_VERSION", '0') == "0.9.0.1":
-            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2",
-                                       enable_protocol_version_discovery=False)
-            self.client3 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "3",
-                                       enable_protocol_version_discovery=False)
+            self.client2 = KafkaClient(
+                self.harness.bootstrap_hosts, clientId=self.topic + "2", enable_protocol_version_discovery=False
+            )
+            self.client3 = KafkaClient(
+                self.harness.bootstrap_hosts, clientId=self.topic + "3", enable_protocol_version_discovery=False
+            )
         else:
             self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
             self.client3 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "3")
@@ -318,8 +320,9 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         """
         group_id = "group_for_two"
         if os.getenv("KAFKA_VERSION", '0') == "0.9.0.1":
-            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2",
-                                       enable_protocol_version_discovery=False)
+            self.client2 = KafkaClient(
+                self.harness.bootstrap_hosts, clientId=self.topic + "2", enable_protocol_version_discovery=False
+            )
         else:
             self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
         self.addCleanup(self.client2.close)
@@ -451,8 +454,9 @@ class TestAfkakGroupIntegration(IntegrationMixin, unittest.TestCase):
         """
         group = "rejoin_group"
         if os.getenv("KAFKA_VERSION", '0') == "0.9.0.1":
-            self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2",
-                                       enable_protocol_version_discovery=False)
+            self.client2 = KafkaClient(
+                self.harness.bootstrap_hosts, clientId=self.topic + "2", enable_protocol_version_discovery=False
+            )
         else:
             self.client2 = KafkaClient(self.harness.bootstrap_hosts, clientId=self.topic + "2")
         self.addCleanup(self.client2.close)

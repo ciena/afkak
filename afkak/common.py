@@ -394,6 +394,53 @@ class ApiVersionResponse(BaseStruct):
     api_versions: list = attr.ib()
 
 
+@attr.frozen
+class Record(BaseStruct):
+    """
+    A Kafka `record`_ in format 2.
+
+    :ivar key: Message key, or ``None`` when the message lacks a key.
+    :ivar value: Message value, or ``None`` if this is a tombstone a.k.a. null message.
+    :ivar [headers]: Message headers, or ``None`` if this message has no headers.
+    """
+
+    key: int = attr.ib()
+    value: int = attr.ib()
+    headers: list = attr.ib(default=attr.Factory(list))
+
+
+@attr.frozen
+class RecordBatch(BaseStruct):
+    """
+    A Kafka `record`_ in format 2.
+
+    :ivar int base_offset: The base offset for this record batch
+    :ivar int partition_leader_epoch: The partition leader epoch
+    :ivar int magic: The magic byte
+    :ivar int crc: The CRC for this record batch
+    :ivar int attributes: The attributes for this record batch
+    :ivar int last_offset_delta: The last offset delta for this record batch
+    :ivar int first_timestamp: The first timestamp for this record batch
+    :ivar int max_timestamp: The max timestamp for this record batch
+    :ivar int producer_id: The producer id for this record batch
+    :ivar int producer_epoch: The producer epoch for this record batch
+    :ivar int base_sequence: The base sequence for this record batch
+    :ivar List[Record] records: The records for this record batch
+    """
+
+    base_offset: int = attr.ib()
+    partition_leader_epoch: int = attr.ib()
+    magic: int = attr.ib()
+    compression: int = attr.ib()
+    last_offset_delta: int = attr.ib(default=-1)
+    first_timestamp: int = attr.ib(default=-1)
+    max_timestamp: int = attr.ib(default=-1)
+    producer_id: int = attr.ib(default=-1)
+    producer_epoch: int = attr.ib(default=-1)
+    base_sequence: int = attr.ib(default=-1)
+    records: list = attr.ib(default=attr.Factory(list))
+
+
 # Requests and responses for consumer groups
 @attr.s(frozen=True, slots=True)
 class _JoinGroupRequestProtocol(object):
@@ -1269,6 +1316,10 @@ class InvalidConsumerGroupError(KafkaError):
 
 
 class NoResponseError(KafkaError):
+    pass
+
+
+class CorruptRecordException(KafkaError):
     pass
 
 

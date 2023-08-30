@@ -98,10 +98,13 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
 
         """
         start_offset = yield self.current_offset(self.topic, 0)
+        if os.getenv('KAFKA_VERSION', '0') <= '0.9.0.1':
+            magic = 0
+        else:
+            magic = 2
 
         msg_set = create_message_set(
-            [SendRequest(self.topic, b"Key:%d" % i, [b"Test msg %d" % i], None) for i in range(100)],
-            CODEC_GZIP,
+            [SendRequest(self.topic, b"Key:%d" % i, [b"Test msg %d" % i], None) for i in range(100)], CODEC_GZIP, magic
         )
         yield self.assert_produce_request(
             msg_set,
@@ -127,9 +130,13 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     @inlineCallbacks
     def test_produce_many_gzip(self):
         start_offset = yield self.current_offset(self.topic, 0)
+        if os.getenv('KAFKA_VERSION', '0') <= '0.9.0.1':
+            magic = 0
+        else:
+            magic = 2
 
-        message1 = create_message_set(make_send_requests([b"Gzipped 1 %d" % i for i in range(100)]), CODEC_GZIP)
-        message2 = create_message_set(make_send_requests([b"Gzipped 2 %d" % i for i in range(100)]), CODEC_GZIP)
+        message1 = create_message_set(make_send_requests([b"Gzipped 1 %d" % i for i in range(100)]), CODEC_GZIP, magic)
+        message2 = create_message_set(make_send_requests([b"Gzipped 2 %d" % i for i in range(100)]), CODEC_GZIP, magic)
 
         yield self.assert_produce_request(message1, start_offset, 100)
         yield self.assert_produce_request(message2, start_offset + 100, 100)
@@ -139,9 +146,13 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     @inlineCallbacks
     def test_produce_many_snappy(self):
         start_offset = yield self.current_offset(self.topic, 0)
+        if os.getenv('KAFKA_VERSION', '0') <= '0.9.0.1':
+            magic = 0
+        else:
+            magic = 2
 
-        message1 = create_message_set(make_send_requests([b"Snappy 1 %d" % i for i in range(100)]), CODEC_SNAPPY)
-        message2 = create_message_set(make_send_requests([b"Snappy 2 %d" % i for i in range(100)]), CODEC_SNAPPY)
+        message1 = create_message_set(make_send_requests([b"Snappy 1 %d" % i for i in range(100)]), CODEC_SNAPPY, magic)
+        message2 = create_message_set(make_send_requests([b"Snappy 2 %d" % i for i in range(100)]), CODEC_SNAPPY, magic)
         yield self.assert_produce_request(message1, start_offset, 100)
         yield self.assert_produce_request(message2, start_offset + 100, 100)
 
@@ -178,15 +189,17 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
     @inlineCallbacks
     def test_produce_10k_gzipped(self):
         start_offset = yield self.current_offset(self.topic, 0)
+        if os.getenv('KAFKA_VERSION', '0') <= '0.9.0.1':
+            magic = 0
+        else:
+            magic = 2
 
         msgs = create_message_set(
-            make_send_requests([b"Gzipped batch 1, message %d" % i for i in range(5000)]),
-            CODEC_GZIP,
+            make_send_requests([b"Gzipped batch 1, message %d" % i for i in range(5000)]), CODEC_GZIP, magic
         )
         yield self.assert_produce_request(msgs, start_offset, 5000)
         msgs = create_message_set(
-            make_send_requests([b"Gzipped batch 2, message %d" % i for i in range(5000)]),
-            CODEC_GZIP,
+            make_send_requests([b"Gzipped batch 2, message %d" % i for i in range(5000)]), CODEC_GZIP, magic
         )
         yield self.assert_produce_request(msgs, start_offset + 5000, 5000)
 
@@ -429,7 +442,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
 
         yield producer.stop()
 
-    @kafka_versions("all")
+    @kafka_versions("0.9.0.1")
     @inlineCallbacks
     def test_producer_batched_by_messages(self):
         start_offset0 = yield self.current_offset(self.topic, 0)
@@ -507,7 +520,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         # cleanup
         yield producer.stop()
 
-    @kafka_versions("all")
+    @kafka_versions("0.9.0.1")
     @inlineCallbacks
     def test_producer_batched_by_bytes(self):
         start_offset0 = yield self.current_offset(self.topic, 0)
@@ -607,7 +620,7 @@ class TestAfkakProducerIntegration(IntegrationMixin, unittest.TestCase):
         # cleanup
         yield producer.stop()
 
-    @kafka_versions("all")
+    @kafka_versions("0.9.0.1")
     @inlineCallbacks
     def test_producer_batched_by_time(self):
         start_offset0 = yield self.current_offset(self.topic, 0)

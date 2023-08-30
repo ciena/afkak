@@ -20,7 +20,7 @@ import struct
 import time
 import zlib
 from binascii import hexlify
-from typing import Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import attr
 from ._util import (
@@ -63,6 +63,9 @@ from .common import (
     ProduceRequest,
     ProduceResponse,
     ProtocolError,
+    Record,
+    RecordBatch,
+    SendRequest,
     TopicMetadata,
     UnsupportedCodecError,
     _HeartbeatRequest,
@@ -77,6 +80,7 @@ from .common import (
     _SyncGroupRequest,
     _SyncGroupResponse,
 )
+from .record import DefaultRecordBatchBuilder
 from twisted.python.compat import nativeString
 
 # fmt: on
@@ -309,6 +313,59 @@ class KafkaCodec(object):
             message_set.append(encoded_message)
             offset += incr
         return b"".join(message_set)
+
+    @classmethod
+    def _encode_record_batch(
+        cls, messages: Union[List[Record], List[Message], List[SendRequest], RecordBatch], offset: int = 0
+    ) -> bytes:
+        """
+        Encode a RecordBatch. This can be given a list of `Records` or `Messages` or `SendRequest` for backwards
+         compatibility.
+
+        :param messages: List of `Record` or `Message` objects
+        :param offset: Offset to use for the first record in the batch
+        :return: Encoded RecordBatch
+        """
+        baseOffset = offset or 0
+        if isinstance(messages, RecordBatch):
+            builder = DefaultRecordBatchBuilder(
+                magic=2,
+                compression_type=messages.compression,
+                is_transactional=0,
+                producer_id=-1,
+                producer_epoch=-1,
+                base_sequence=-1,
+            )
+        else:
+            builder = DefaultRecordBatchBuilder(
+                magic=2, compression_type=0, is_transactional=0, producer_id=-1, producer_epoch=-1, base_sequence=-1
+            )
+        if isinstance(messages, RecordBatch):
+            for msg in messages.records:
+                ts = int(time.time() * 1000)
+                builder.append(offset=baseOffset, timestamp=ts, key=msg.key, value=msg.value, headers=msg.headers)
+                baseOffset += 1
+        elif isinstance(messages[0], Message):
+            for message in messages:
+                ts = message.timestamp or int(time.time() * 1000)
+                builder.append(offset=baseOffset, timestamp=ts, key=message.key, value=message.value, headers=[])
+                baseOffset += 1
+        elif isinstance(messages[0], Record):
+            for record in messages:
+                headers = record.headers or []
+                ts = int(time.time() * 1000)
+                builder.append(offset=baseOffset, timestamp=ts, key=record.key, value=record.value, headers=headers)
+                baseOffset += 1
+        elif isinstance(messages[0], SendRequest):
+            for req in messages:
+                key = req.key
+                ts = int(time.time() * 1000)
+                for msg in req.msgs:
+                    builder.append(offset=baseOffset, timestamp=ts, key=key, value=msg, headers=[])
+                    baseOffset += 1
+        else:
+            raise TypeError(f"Unknown message type: {type(messages[0])}")
+        return builder.build()
 
     @classmethod
     def _encode_message(cls, message: Message):
@@ -550,10 +607,13 @@ class KafkaCodec(object):
         # override the api_version instead of passing it directly for now since we only support 2 versions
         if api_version >= 2:
             req_api_version = 2
-            magic = 1
+            magic = 2
         else:
             req_api_version = api_version
             magic = 0
+
+        if magic == 2:
+            baseOffset = 0
 
         message = cls._encode_message_header(
             client_id, correlation_id, KafkaCodec.PRODUCE_KEY, api_version=req_api_version
@@ -566,7 +626,11 @@ class KafkaCodec(object):
 
             message += struct.pack(">i", len(topic_payloads))
             for partition, payload in topic_payloads.items():
-                msg_set = KafkaCodec._encode_message_set(payload.messages, magic=magic)
+                if magic == 2:
+                    msg_set = KafkaCodec._encode_record_batch(payload.messages, offset=baseOffset)
+                    baseOffset += len(payload.messages)
+                else:
+                    msg_set = KafkaCodec._encode_message_set(payload.messages, magic=magic)
                 message += struct.pack(">ii", partition, len(msg_set))
                 message += msg_set
 
@@ -1164,10 +1228,12 @@ def create_message(payload: bytes, key: bytes = None, magic: int = 0) -> Message
     """
     assert payload is None or isinstance(payload, bytes), "payload={!r} should be bytes or None".format(payload)
     assert key is None or isinstance(key, bytes), "key={!r} should be bytes or None".format(key)
-    assert magic in (0, 1), "magic={!r} should be 0 or 1".format(magic)
+    assert magic in (0, 1, 2), "magic={!r} should be 0,1 or 2".format(magic)
     if magic == 1:
         ts = int(time.time() * 1000)
         return Message(magic, 0, key, payload, timestamp=ts)
+    elif magic == 2:
+        return Record(key, payload, [])
     else:
         return Message(magic, 0, key, payload)
 
@@ -1236,10 +1302,14 @@ def create_message_set(requests: List[ProduceRequest], codec: int = CODEC_NONE, 
     for req in requests:
         if magic == 1:
             msglist.extend([create_message(m, key=req.key, magic=1) for m in req.messages])
+        elif magic == 2:
+            msglist.extend([create_message(m, key=req.key, magic=2) for m in req.messages])
         else:
             msglist.extend([create_message(m, key=req.key) for m in req.messages])
 
-    if codec == CODEC_NONE:
+    if magic == 2:
+        return RecordBatch(base_offset=0, partition_leader_epoch=-1, magic=2, compression=codec, records=msglist)
+    elif codec == CODEC_NONE:
         return msglist
     elif codec == CODEC_GZIP:
         return [create_gzip_message(msglist, magic)]

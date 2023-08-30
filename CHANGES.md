@@ -1,3 +1,10 @@
+Version 23.9.0+mcp0
+==============
+
+- **Feature:** Add support for record/recordBatch
+
+- **Feature:** dynamic broker version detection
+
 Version 21.5.0
 ==============
 
